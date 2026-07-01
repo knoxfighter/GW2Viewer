@@ -16,7 +16,6 @@ SamplerState texSampler : register(s0);
 
 cbuffer CB : register(b0)
 {
-    matrix World;
     matrix ViewProj;
     float3 EyePosition;
     float Padding0;
@@ -31,6 +30,8 @@ cbuffer MaterialCB : register(b1)
 
 cbuffer MeshCB : register(b2)
 {
+    matrix World;
+    matrix WorldInvertedTransposed;
     uint CustomMeshFlags;
 };
 
@@ -64,7 +65,7 @@ PS_IN VS(VS_IN input)
 
     float3x3 world3x3 = (float3x3)World;
     float3 viewDir = normalize(EyePosition - output.WorldPosition);
-    output.Normal = float4(normalize(mul(input.Normal.zyx * 2.0f - 1.0f, world3x3)), viewDir.z);
+    output.Normal = float4(normalize(mul(input.Normal.zyx * 2.0f - 1.0f, (float3x3)WorldInvertedTransposed)), viewDir.z);
     output.Tangent = float4(normalize(mul(input.Tangent.zyx * 2.0f - 1.0f, world3x3)), viewDir.x);
     output.Bitangent = float4(-normalize(mul(input.Bitangent.zyx * 2.0f - 1.0f, world3x3)), viewDir.y);
 
@@ -117,7 +118,7 @@ float4 PS(PS_IN input) : SV_Target
 
     float3 finalColor = input.Color.rgb * (ambient + rimLight + diffuse + specular);
     if (CustomMeshFlags & 0x1)
-        finalColor = lerp(finalColor, float3(0.75f, 0.75f, 1.0f), 0.5f);
+        finalColor = lerp(finalColor, float3(0.75f, 0.75f, 1.0f), 0.25f);
     return float4(finalColor, CustomMaterialFlags & 0x1 ? 1 : saturate(texColor.a * 2.0f));
 }
 )";

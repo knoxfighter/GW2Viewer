@@ -8,7 +8,6 @@ namespace GW2Viewer::Data::Model
 
 struct ViewportConstantBuffer
 {
-    Matrix World;
     Matrix ViewProjection;
     Vector3 EyePosition;
     float Padding0;
@@ -28,17 +27,6 @@ void Viewport::Resize(ImVec2i size)
     UpdateCamera();
 }
 
-void Viewport::CameraContainScene()
-{
-    if (!m_camera || !m_scene)
-        return;
-
-    auto const box = m_scene->GetBoundingBox();
-    auto const camera = (OrbitCamera*)m_camera;
-    camera->SetTarget(box.Center);
-    camera->SetRadius(Vector3(box.Extents).Length() * 2.5f);
-}
-
 void Viewport::UpdateCamera() const
 {
     if (m_camera)
@@ -55,8 +43,7 @@ void Viewport::Render()
 
     ViewportConstantBuffer buffer
     {
-        .World = Matrix::Identity,
-        .ViewProjection = (m_camera->GetViewMatrix() * m_camera->GetProjectionMatrix()).Transpose(),
+        .ViewProjection = (m_camera->GetView() * m_camera->GetProjection()).Transpose(),
         .EyePosition = m_camera->GetPosition(),
         .LightDir = m_scene->GetLightDirection(),
     };
@@ -71,6 +58,35 @@ void Viewport::Render()
 
 void Viewport::Debug()
 {
+}
+
+void Viewport::HitTest(HitTestContext& context) const
+{
+    if (m_scene)
+        m_scene->HitTest(context);
+}
+
+SceneObject* Viewport::HitTest(ImVec2 mouse, HitTestContext* outContext) const
+{
+    if (!m_camera)
+        return nullptr;
+
+    Vector3 const ndc { mouse.x / m_renderTexture.GetSize().x * 2.0f - 1.0f, 1.0f - mouse.y / m_renderTexture.GetSize().y * 2.0f, 0.0f };
+    auto const invertedViewProjection = (m_camera->GetView() * m_camera->GetProjection()).Invert();
+
+    HitTestContext context
+    {
+        .Origin = Vector3::Transform(ndc, invertedViewProjection),
+    };
+    context.Direction = Vector3::Transform(ndc + Vector3::UnitZ, invertedViewProjection) - context.Origin;
+    context.Direction.Normalize();
+
+    HitTest(context);
+
+    auto const result = context.GetClosestObject();
+    if (outContext)
+        *outContext = std::move(context);
+    return result;
 }
 
 }

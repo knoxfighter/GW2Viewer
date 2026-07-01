@@ -8,19 +8,17 @@ struct Camera : SceneObject
 {
     explicit Camera(Scene* scene, std::string_view name) : SceneObject(scene, name) { }
 
+    void Update() override;
     void Debug() override;
 
     virtual void HandleInput(Vector2 pan, Vector2 rotation, float zoom) = 0;
+    virtual void Focus(SceneObject const& object, bool smooth = false);
 
-    auto const& GetPosition() const { return m_position; }
-    void SetPosition(Vector3 position) { m_position = position; UpdateView(); }
-    auto const& GetRotation() const { return m_rotation; }
-    void SetRotation(Quaternion rotation) { m_rotation = rotation; UpdateView(); }
-    auto const& GetViewMatrix() const { return m_view; }
+    auto GetForward() const { return Vector3::Transform(Vector3::UnitX, GetRotationQuaternion()); }
+    auto GetRight() const { return Vector3::Transform(-Vector3::UnitY, GetRotationQuaternion()); }
+    auto GetUp() const { return Vector3::Transform(-Vector3::UnitZ, GetRotationQuaternion()); }
 
-    auto GetForward() const { return Vector3::Transform(Vector3::UnitX, m_rotation); }
-    auto GetRight() const { return Vector3::Transform(-Vector3::UnitY, m_rotation); }
-    auto GetUp() const { return Vector3::Transform(-Vector3::UnitZ, m_rotation); }
+    auto const& GetView() const { return m_view; }
 
     auto GetFoV() const { return m_fov; }
     void SetFoV(float value) { m_fov = value; UpdateProjection(); }
@@ -30,11 +28,9 @@ struct Camera : SceneObject
     void SetNearClip(float value) { m_nearClip = value; UpdateProjection(); }
     auto GetFarClip() const { return m_farClip; }
     void SetFarClip(float value) { m_farClip = value; UpdateProjection(); }
-    auto const& GetProjectionMatrix() const { return m_projection; }
+    auto const& GetProjection() const { return m_projection; }
 
 protected:
-    Vector3 m_position = Vector3::Zero;
-    Quaternion m_rotation = Quaternion::Identity;
     Matrix m_view = Matrix::Identity;
     void UpdateView();
 
@@ -54,6 +50,7 @@ struct OrbitCamera : Camera
     void Debug() override;
 
     void HandleInput(Vector2 pan, Vector2 rotation, float zoom) override;
+    void Focus(SceneObject const& object, bool smooth) override;
 
     auto GetTarget() const { return m_targetTarget; }
     void SetTarget(Vector3 value) { m_target = m_targetTarget = value; }

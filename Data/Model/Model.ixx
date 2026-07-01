@@ -4,3 +4,9 @@ export import :Grid;
 export import :Mesh;
 export import :Scene;
 export import :Viewport;
+
+export namespace GW2Viewer::Data::Model
+{
+using Model::SceneObject;
+using Model::HitTestContext;
+}

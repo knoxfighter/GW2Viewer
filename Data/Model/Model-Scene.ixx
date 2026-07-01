@@ -18,16 +18,21 @@ struct Scene : SceneObject
     Mesh& CreateMesh(std::string_view name);
     Scene& CreateScene(std::string_view name);
 
-    BoundingBox GetBoundingBox() const;
+    BoundingBox GetBoundingBox() const override;
+    bool HitTest(HitTestContext& context) const override;
 
     auto GetLightDirection() const { return m_lightDirection; }
     void SetLightDirection(Vector3 value) { m_lightDirection = value; }
+
+    auto GetBasicMaterial() const { return m_basicMaterial.get(); }
+    auto GetDebugShapesMaterial() const { return m_debugShapesMaterial.get(); }
 
     auto GetDummyTextureDiffuse() const { return m_dummyTextureDiffuse.Get(); }
     auto GetDummyTextureNormal() const { return m_dummyTextureNormal.Get(); }
 
 private:
-    Vector3 m_lightDirection { 1, 1, 1 };
+    Vector3 m_lightDirection = { std::cos(DirectX::XM_PIDIV4), std::sin(DirectX::XM_PIDIV4), 1 };
+    bool m_lightAutoRotate = false;
 
     std::unique_ptr<Material> m_basicMaterial;
     std::unique_ptr<Material> m_debugShapesMaterial;

@@ -3,6 +3,7 @@ import :Common;
 
 export namespace GW2Viewer::Data::Model
 {
+struct FVFInfo;
 
 struct Mesh : SceneObject
 {
@@ -11,23 +12,25 @@ struct Mesh : SceneObject
     void Render() override;
     void Debug() override;
 
-    void CreateBox();
     void LoadMesh(uint32 fvf, uint32 vertexCount, byte const* vertices, uint32 indexCount, byte const* indices, uint32 diffuseFileID, uint32 normalFileID);
 
-    BoundingBox const& GetBoundingBox() const { return m_boundingBox; }
-
-    bool GetVisible() const { return m_visible; }
-    void SetVisible(bool value) { m_visible = value; }
+    BoundingBox GetBoundingBox() const override;
+    bool HitTest(HitTestContext& context) const override;
 
 private:
+    FVFInfo const* m_fvf = nullptr;
+    std::vector<byte> m_vertexData;
+    std::vector<Vertex> m_vertices;
+    std::vector<uint16> m_indices;
     BoundingBox m_boundingBox;
     uint32 m_fileDiffuse = 0;
     uint32 m_fileNormal = 0;
-    bool m_visible = true;
     bool m_debugHighlightHovered = false;
 
     Graphics::Buffer m_vertexBuffer;
     Graphics::Buffer m_indexBuffer;
+    Graphics::Buffer m_selectionVertexBuffer;
+    Graphics::Buffer m_selectionIndexBuffer;
     Graphics::Buffer m_constantBuffer;
 };
 

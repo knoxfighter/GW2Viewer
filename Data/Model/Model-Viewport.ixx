@@ -13,11 +13,12 @@ struct Viewport
     void Render();
     void Debug();
 
+    void HitTest(HitTestContext& context) const;
+    SceneObject* HitTest(ImVec2 mouse, HitTestContext* outContext = nullptr) const;
+
     void SetCamera(Camera* camera) { m_camera = camera; UpdateCamera(); }
     auto GetCamera() const { return m_camera; }
     auto GetShaderResourceView() const { return m_renderTexture.GetShaderResourceView(); }
-
-    void CameraContainScene();
 
 private:
     Scene* m_scene = nullptr;

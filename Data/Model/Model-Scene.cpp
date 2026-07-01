@@ -4,6 +4,7 @@ import :Grid;
 import :Material;
 import :Mesh;
 import :Scene;
+import GW2Viewer.Common.Time;
 #include "Macros.h"
 
 namespace GW2Viewer::Data::Model
@@ -37,6 +38,14 @@ Scene::~Scene() = default;
 
 void Scene::Update()
 {
+    if (m_lightAutoRotate)
+    {
+        auto yaw = std::atan2(m_lightDirection.y, m_lightDirection.x);
+        yaw += Time::DeltaSecs;
+        m_lightDirection.x = std::cos(yaw);
+        m_lightDirection.y = std::sin(yaw);
+    }
+
     for (auto const& object : m_objects)
         object->Update();
 }
@@ -55,26 +64,25 @@ void Scene::Render()
 
 void Scene::Debug()
 {
-    static bool rotate = true;
-    float yaw = std::atan2(m_lightDirection.y, m_lightDirection.x);
     if (scoped::CollapsingHeader("Light"))
     {
         I::SetNextItemWidth(50);
-        I::DragFloat("Yaw", &yaw, 0.01f);
+        if (auto yaw = std::atan2(m_lightDirection.y, m_lightDirection.x); I::DragFloat("Yaw", &yaw, 0.01f))
+        {
+            m_lightDirection.x = std::cos(yaw);
+            m_lightDirection.y = std::sin(yaw);
+        }
         I::SameLine();
-        I::Checkbox("Auto Rotate", &rotate);
+        I::Checkbox("Auto Rotate", &m_lightAutoRotate);
         I::SetNextItemWidth(50);
-        I::DragFloat("Height", &m_lightDirection.z, 0.01f);
+        I::DragFloat("Vertical", &m_lightDirection.z, 0.01f);
     }
-    if (rotate)
-        yaw = I::GetTime();
-    m_lightDirection.x = std::cos(yaw);
-    m_lightDirection.y = std::sin(yaw);
 
     if (scoped::CollapsingHeader("Material"))
         m_basicMaterial->Debug();
 
-    for (auto first = true; auto const& object : m_objects)
+    auto first = true;
+    for (auto const& object : m_objects)
     {
         if (dynamic_cast<Camera*>(object.get()))
         {
@@ -88,12 +96,21 @@ void Scene::Debug()
         }
         else
         {
-            if (std::exchange(first, false) && !I::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen))
-                break;
+            if (std::exchange(first, false))
+            {
+                if (!I::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen))
+                    return;
+
+                I::BeginTable("ObjectsTable", 2, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_ScrollY, { -FLT_MIN, -FLT_MIN });
+                I::TableSetupColumn("##Fold", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoResize, I::GetFrameHeight());
+                I::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
+            }
 
             object->Debug();
         }
     }
+    if (!first)
+        I::EndTable();
 }
 
 Camera& Scene::CreateCameraOrbit(std::string_view name) { return Create<OrbitCamera>(name); }
@@ -116,6 +133,14 @@ BoundingBox Scene::GetBoundingBox() const
     }
 
     return box.value_or({ Vector3::Zero, { 20, 20, 0 } });
+}
+
+bool Scene::HitTest(HitTestContext& context) const
+{
+    for (auto const& object : m_objects)
+        object->HitTest(context);
+
+    return context.Coarse.ClosestObject;
 }
 
 }
