@@ -852,7 +852,7 @@ begin:
 
 void ImGui::DrawWindowShadow(char const* name, ImGuiWindowFlags flags)
 {
-    if (!(flags & ImGuiWindowFlags_ChildWindow) && !IsWindowDocked() && name != "##MainMenuBar"sv)
+    if (!(flags & ImGuiWindowFlags_ChildWindow) && !IsWindowDocked() && name != "##MainMenuBar"sv && name != "gizmo"sv)
     {
         if (auto const texture = G::Game.Texture.Get(G::UI.Textures.WindowShadow))
         {

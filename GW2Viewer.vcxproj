@@ -174,6 +174,12 @@
     <ClCompile Include="dep\gw2dattools\src\gw2dattools\format\Mapping.cpp" />
     <ClCompile Include="dep\gw2dattools\src\gw2dattools\format\Mft.cpp" />
     <ClCompile Include="dep\gw2dattools\src\gw2dattools\interface\ANDatInterface.cpp" />
+    <ClCompile Include="dep\ImGuizmo\GraphEditor.cpp" />
+    <ClCompile Include="dep\ImGuizmo\ImCurveEdit.cpp" />
+    <ClCompile Include="dep\ImGuizmo\ImGradient.cpp" />
+    <ClCompile Include="dep\ImGuizmo\ImGuizmo.cpp" />
+    <ClCompile Include="dep\ImGuizmo\ImSequencer.cpp" />
+    <ClCompile Include="dep\ImGuizmo\ImVectorEditor.cpp" />
     <ClCompile Include="dep\imgui\imgui.cpp" />
     <ClCompile Include="dep\imgui\imgui_demo.cpp" />
     <ClCompile Include="dep\imgui\imgui_draw.cpp" />
@@ -216,6 +222,7 @@
     <ClCompile Include="UI\ImGui\ImGui-Wrap.ixx" />
     <ClCompile Include="UI\ImGui\ImGui.cpp" />
     <ClCompile Include="UI\ImGui\ImGui.ixx" />
+    <ClCompile Include="UI\ImGui\ImGuizmo.ixx" />
     <ClCompile Include="UI\Manager.cpp" />
     <ClCompile Include="UI\Manager.ixx" />
     <ClCompile Include="UI\Notifications.ixx" />
@@ -318,6 +325,14 @@
     <ClInclude Include="dep\imguiwrap.dear.h" />
     <ClInclude Include="dep\imguiwrap.defermacro.h" />
     <ClInclude Include="dep\imguiwrap.helpers.h" />
+    <ClInclude Include="dep\ImGuizmo\GraphEditor.h" />
+    <ClInclude Include="dep\ImGuizmo\ImCurveEdit.h" />
+    <ClInclude Include="dep\ImGuizmo\ImGradient.h" />
+    <ClInclude Include="dep\ImGuizmo\ImGuizmo.h" />
+    <ClInclude Include="dep\ImGuizmo\ImLightRig.h" />
+    <ClInclude Include="dep\ImGuizmo\ImSequencer.h" />
+    <ClInclude Include="dep\ImGuizmo\ImVectorEditor.h" />
+    <ClInclude Include="dep\ImGuizmo\ImZoomSlider.h" />
     <ClInclude Include="dep\imgui\imconfig.h" />
     <ClInclude Include="dep\imgui\imgui.h" />
     <ClInclude Include="dep\imgui\imgui_impl_dx11.h" />

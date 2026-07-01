@@ -12,6 +12,7 @@ import GW2Viewer.Services.CrashHandler;
 import GW2Viewer.Services.Graphics;
 import GW2Viewer.UI.Manager;
 import GW2Viewer.User.Config;
+import GW2Viewer.UI.ImGui.ImGuizmo;
 
 void Render()
 {
@@ -20,6 +21,7 @@ void Render()
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
 
     G::UI.Update();
 
