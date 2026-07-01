@@ -39,6 +39,7 @@ import <nlohmann/detail/macro_scope.hpp>;
 
 #pragma region GW2Viewer.UI.ImGui
 #include "dep/IconsFontAwesome6.h"
+#include "dep/IconsLucide.h"
 
 #define scoped auto _ = dear
 #pragma endregion

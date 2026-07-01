@@ -322,6 +322,7 @@
     <ClInclude Include="dep\gw2dattools\src\gw2dattools\format\Mft.h" />
     <ClInclude Include="dep\gw2dattools\src\gw2dattools\format\Utils.h" />
     <ClInclude Include="dep\gw2dattools\src\gw2dattools\utils\BitArray.h" />
+    <ClInclude Include="dep\IconsLucide.h" />
     <ClInclude Include="dep\imguiwrap.dear.h" />
     <ClInclude Include="dep\imguiwrap.defermacro.h" />
     <ClInclude Include="dep\imguiwrap.helpers.h" />

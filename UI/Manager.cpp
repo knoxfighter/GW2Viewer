@@ -48,7 +48,7 @@ void Manager::Load()
     io.ConfigDockingTransparentPayload = true;
 
     io.Fonts->AddFontDefault();
-    auto loadFont = [&](std::filesystem::path const& filename, float size)
+    auto loadFont = [&](std::filesystem::path const& filename, float size, std::string_view iconsFont = FONT_ICON_FILE_NAME_FAS, float iconsSize = 10.0f, ImVec2 iconsOffset = { })
     {
         static constexpr ImWchar faRanges[] { ICON_MIN_FA, ICON_MAX_FA, 0 };
         {
@@ -66,11 +66,13 @@ void Manager::Load()
             ImFontConfig config;
             config.MergeMode = true;
             config.PixelSnapH = true;
-            config.GlyphMinAdvanceX = 10.0f;
-            return io.Fonts->AddFontFromFileTTF((pathFonts / FONT_ICON_FILE_NAME_FAS).string().c_str(), 10.0f, &config);
+            config.GlyphMinAdvanceX = iconsSize - iconsOffset.x;
+            config.GlyphOffset = iconsOffset;
+            return io.Fonts->AddFontFromFileTTF((pathFonts / iconsFont).string().c_str(), iconsSize, &config);
         }
     };
     Fonts.Default = loadFont("Roboto-Regular.ttf", 15.0f);
+    Fonts.DefaultLucide = loadFont("Roboto-Regular.ttf", 15.0f, FONT_ICON_FILE_NAME_LC, 13.0f, { -3, 2 });
     Fonts.Monospace = loadFont("RobotoMono-Regular.ttf", 15.0f);
     Fonts.GameText = loadFont("trebuc.ttf", 14.725f);
     Fonts.GameTextItalic = loadFont("trebucit.ttf", 14.725f);

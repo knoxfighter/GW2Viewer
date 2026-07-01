@@ -14,6 +14,7 @@ public:
     struct
     {
         ImFont* Default { };
+        ImFont* DefaultLucide { };
         ImFont* Monospace { };
         ImFont* GameText { };
         ImFont* GameTextItalic { };
