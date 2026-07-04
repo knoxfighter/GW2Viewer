@@ -132,6 +132,7 @@
     <ClCompile Include="Data\Map\Marker.ixx" />
     <ClCompile Include="Data\Model\Model-Camera.cpp" />
     <ClCompile Include="Data\Model\Model-Camera.ixx" />
+    <ClCompile Include="Data\Model\Model-Common.cpp" />
     <ClCompile Include="Data\Model\Model-Common.ixx" />
     <ClCompile Include="Data\Model\Model-Grid.cpp" />
     <ClCompile Include="Data\Model\Model-Grid.ixx" />

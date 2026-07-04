@@ -24,8 +24,8 @@ struct Scene : SceneObject
     auto GetLightDirection() const { return m_lightDirection; }
     void SetLightDirection(Vector3 value) { m_lightDirection = value; }
 
-    auto GetBasicMaterial() const { return m_basicMaterial.get(); }
-    auto GetDebugShapesMaterial() const { return m_debugShapesMaterial.get(); }
+    void SetCurrentMaterial(Material* material);
+    void SetDebugShapes(bool enabled);
 
     auto GetDummyTextureDiffuse() const { return m_dummyTextureDiffuse.Get(); }
     auto GetDummyTextureNormal() const { return m_dummyTextureNormal.Get(); }
@@ -36,6 +36,9 @@ private:
 
     std::unique_ptr<Material> m_basicMaterial;
     std::unique_ptr<Material> m_debugShapesMaterial;
+    Material* m_currentMaterial = nullptr;
+    Material* m_debugMaterialBackup = nullptr;
+    uint32 m_debugShapesDepth = 0;
 
     std::list<std::unique_ptr<SceneObject>> m_objects;
     template<typename T, typename... TArgs> requires std::is_assignable_v<SceneObject, T>

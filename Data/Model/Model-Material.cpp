@@ -14,25 +14,28 @@ Texture2D texDiffuse : register(t0);
 Texture2D texNormal : register(t1);
 SamplerState texSampler : register(s0);
 
-cbuffer CB : register(b0)
+cbuffer ViewportConstantBuffer : register(b0)
 {
     matrix ViewProj;
     float3 EyePosition;
-    float Padding0;
+    float ViewportPadding0;
     float3 LightDir;
-    float Padding1;
+    float ViewportPadding1;
 };
 
-cbuffer MaterialCB : register(b1)
+cbuffer MaterialConstantBuffer : register(b1)
 {
     uint CustomMaterialFlags;
 };
 
-cbuffer MeshCB : register(b2)
+cbuffer ObjectConstantBuffer : register(b2)
 {
     matrix World;
     matrix WorldInvertedTransposed;
-    uint CustomMeshFlags;
+    uint CustomObjectFlags;
+    float ObjectPadding0;
+    float ObjectPadding1;
+    float ObjectPadding2;
 };
 
 struct VS_IN
@@ -77,7 +80,12 @@ PS_IN VS(VS_IN input)
 float4 PS(PS_IN input) : SV_Target
 {
     if (CustomMaterialFlags & 0x2)
+    {
+        if (CustomObjectFlags & 0x1)
+            input.Color.xyz = lerp(input.Color.xyz, float3(0.75f, 0.75f, 1.0f), 0.25f);
+
         return input.Color;
+    }
 
     float4 texColor = texDiffuse.Sample(texSampler, input.UV);
     if (CustomMaterialFlags & 0x1 && texColor.a * 2 < 0.5f)
@@ -117,7 +125,7 @@ float4 PS(PS_IN input) : SV_Target
     float3 rimLight = float3(0.149, 0.129, 0.117) * rimMask;
 
     float3 finalColor = input.Color.rgb * (ambient + rimLight + diffuse + specular);
-    if (CustomMeshFlags & 0x1)
+    if (CustomObjectFlags & 0x1)
         finalColor = lerp(finalColor, float3(0.75f, 0.75f, 1.0f), 0.25f);
     return float4(finalColor, CustomMaterialFlags & 0x1 ? 1 : saturate(texColor.a * 2.0f));
 }

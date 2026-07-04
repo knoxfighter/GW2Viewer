@@ -19,6 +19,7 @@ private:
     bool m_visible = true;
 
     Graphics::Buffer m_vertexBuffer;
+    Graphics::Buffer m_constantBuffer;
 };
 
 }

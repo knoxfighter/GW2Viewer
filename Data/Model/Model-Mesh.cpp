@@ -10,17 +10,6 @@ import magic_enum;
 namespace GW2Viewer::Data::Model
 {
 
-struct MeshConstantBuffer
-{
-    Matrix World;
-    Matrix WorldInvertedTransposed;
-    uint32 HighlightObject : 1 = false;
-    float Padding0;
-    float Padding1;
-    float Padding2;
-};
-static_assert(!(sizeof(MeshConstantBuffer) % 16));
-
 struct FVFInfo
 {
     uint32 Size = 0;
@@ -65,10 +54,9 @@ void Mesh::Render()
     context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     context->PSSetShaderResources(0, 2, textures);
 
-    MeshConstantBuffer buffer
+    ObjectConstantBuffer buffer
     {
         .World = GetTransform().Transpose(),
-        .WorldInvertedTransposed = GetTransform().Invert(),
         .HighlightObject = GetProperties().Highlighted || m_debugHighlightHovered,
     };
     m_constantBuffer.Update(buffer);
@@ -77,17 +65,7 @@ void Mesh::Render()
 
     context->DrawIndexed(m_indexBuffer.Count, 0, 0);
 
-    if (GetProperties().Selected)
-    {
-        GetScene()->GetDebugShapesMaterial()->Bind();
-        context->IASetVertexBuffers(0, 1, m_selectionVertexBuffer.Ptr.GetAddressOf(), &stride, &offset);
-        context->IASetIndexBuffer(m_selectionIndexBuffer.Ptr.Get(), DXGI_FORMAT_R16_UINT, 0);
-        context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-        context->DrawIndexed(m_selectionIndexBuffer.Count, 0, 0);
-        GetScene()->GetBasicMaterial()->Bind();
-    }
-
-    m_constantBuffer.Update(MeshConstantBuffer { });
+    RenderSelection();
 }
 
 void Mesh::Debug()
@@ -347,62 +325,11 @@ void Mesh::LoadMesh(uint32 fvf, uint32 vertexCount, byte const* vertices, uint32
         normalFileID = file->GetBestVersion().ID;
     m_fileNormal = normalFileID;
 
-    Vector3 corners[8];
-    m_boundingBox.GetCorners(corners);
-    constexpr auto length = 0.2f;
-    std::vector<Vertex> selectionVertices
-    {
-        { .Position = corners[0] },
-        { .Position = DirectX::XMVectorLerp(corners[0], corners[1], length) },
-        { .Position = DirectX::XMVectorLerp(corners[0], corners[1], 1.0f - length) },
-        { .Position = corners[1] },
-        { .Position = DirectX::XMVectorLerp(corners[1], corners[2], length) },
-        { .Position = DirectX::XMVectorLerp(corners[1], corners[2], 1.0f - length) },
-        { .Position = corners[2] },
-        { .Position = DirectX::XMVectorLerp(corners[2], corners[3], length) },
-        { .Position = DirectX::XMVectorLerp(corners[2], corners[3], 1.0f - length) },
-        { .Position = corners[3] },
-        { .Position = DirectX::XMVectorLerp(corners[3], corners[0], length) },
-        { .Position = DirectX::XMVectorLerp(corners[3], corners[0], 1.0f - length) },
-
-        { .Position = DirectX::XMVectorLerp(corners[0], corners[4], length) },
-        { .Position = DirectX::XMVectorLerp(corners[1], corners[5], length) },
-        { .Position = DirectX::XMVectorLerp(corners[2], corners[6], length) },
-        { .Position = DirectX::XMVectorLerp(corners[3], corners[7], length) },
-
-        { .Position = DirectX::XMVectorLerp(corners[0], corners[4], 1.0f - length) },
-        { .Position = DirectX::XMVectorLerp(corners[1], corners[5], 1.0f - length) },
-        { .Position = DirectX::XMVectorLerp(corners[2], corners[6], 1.0f - length) },
-        { .Position = DirectX::XMVectorLerp(corners[3], corners[7], 1.0f - length) },
-
-        { .Position = corners[4] },
-        { .Position = DirectX::XMVectorLerp(corners[4], corners[5], length) },
-        { .Position = DirectX::XMVectorLerp(corners[4], corners[5], 1.0f - length) },
-        { .Position = corners[5] },
-        { .Position = DirectX::XMVectorLerp(corners[5], corners[6], length) },
-        { .Position = DirectX::XMVectorLerp(corners[5], corners[6], 1.0f - length) },
-        { .Position = corners[6] },
-        { .Position = DirectX::XMVectorLerp(corners[6], corners[7], length) },
-        { .Position = DirectX::XMVectorLerp(corners[6], corners[7], 1.0f - length) },
-        { .Position = corners[7] },
-        { .Position = DirectX::XMVectorLerp(corners[7], corners[4], length) },
-        { .Position = DirectX::XMVectorLerp(corners[7], corners[4], 1.0f - length) },
-    };
-    for (auto& vertex : selectionVertices)
-        vertex.Color = Vector4 { 0.5f, 0.5f, 0.5f, 1.0f };
-    std::vector<uint16> selectionIndices
-    {
-        0, 1,  2, 3,  3, 4,  5, 6,  6, 7,  8, 9, 9, 10,  11, 0,
-        0, 12,  3, 13,  6, 14,  9, 15,
-        16, 20,  17, 23,  18, 26,  19, 29,
-        20, 21,  22, 23,  23, 24,  25, 26,  26, 27,  28, 29,  29, 30,  31, 20,
-    };
+    CreateSelectionBuffers(m_boundingBox);
 
     m_vertexBuffer = G::Services::Graphics.CreateVertexBuffer(m_vertices);
     m_indexBuffer = G::Services::Graphics.CreateIndexBuffer(m_indices);
-    m_selectionVertexBuffer = G::Services::Graphics.CreateVertexBuffer(selectionVertices);
-    m_selectionIndexBuffer = G::Services::Graphics.CreateIndexBuffer(selectionIndices);
-    m_constantBuffer = G::Services::Graphics.CreateConstantBuffer(MeshConstantBuffer { });
+    m_constantBuffer = G::Services::Graphics.CreateConstantBuffer(ObjectConstantBuffer { });
 }
 
 BoundingBox Mesh::GetBoundingBox() const

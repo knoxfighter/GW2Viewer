@@ -53,13 +53,7 @@ struct SceneObject
 
     virtual void Update() { }
     virtual void Render() { }
-    virtual void Debug()
-    {
-        if (auto value = GetPosition(); I::DragFloat3("Position", &value.x)) SetPosition(value);
-        if (auto value = GetRotation(); I::DragFloat3("Rotation", &value.x, 0.01f)) SetRotation(value);
-        if (auto value = GetScale(); I::DragFloat3("Scale", &value.x, 0.01f)) SetScale(value);
-        if (auto value = GetScale(); I::DragFloat("Uniform", &value.x, 0.01f)) SetScale(value.x);
-    }
+    virtual void Debug();
 
     Scene* GetScene() const { return m_scene; }
     std::string const& GetName() const { return m_name; }
@@ -86,6 +80,10 @@ struct SceneObject
     Properties& GetProperties() { return m_properties; }
     Properties const& GetProperties() const { return m_properties; }
 
+protected:
+    void CreateSelectionBuffers(BoundingBox const& localBox);
+    bool RenderSelection();
+
 private:
     Scene* m_scene;
     std::string m_name;
@@ -97,6 +95,9 @@ private:
     void UpdateTransform() { m_transform = Matrix::CreateScale(m_scale) * Matrix::CreateFromQuaternion(FromRollPitchYaw(m_rotation)) * Matrix::CreateTranslation(m_position); }
 
     Properties m_properties;
+
+    Graphics::Buffer m_selectionVertexBuffer;
+    Graphics::Buffer m_selectionIndexBuffer;
 };
 
 struct HitTestContext
@@ -129,5 +130,16 @@ struct Vertex
     Vector2 UV;
     Vector4 Color;
 };
+
+struct ObjectConstantBuffer
+{
+    Matrix World;
+    Matrix WorldInvertedTransposed = World.Invert();
+    uint32 HighlightObject : 1 = false;
+    float Padding0;
+    float Padding1;
+    float Padding2;
+};
+static_assert(!(sizeof(ObjectConstantBuffer) % 16));
 
 }

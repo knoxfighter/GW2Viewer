@@ -29,8 +29,6 @@ private:
 
     Graphics::Buffer m_vertexBuffer;
     Graphics::Buffer m_indexBuffer;
-    Graphics::Buffer m_selectionVertexBuffer;
-    Graphics::Buffer m_selectionIndexBuffer;
     Graphics::Buffer m_constantBuffer;
 };
 

@@ -52,14 +52,9 @@ void Scene::Update()
 
 void Scene::Render()
 {
-    for (auto first = true; auto const& object : m_objects)
-    {
-        if (dynamic_cast<Camera*>(object.get()) || dynamic_cast<Grid*>(object.get()))
-            m_debugShapesMaterial->Bind();
-        else if (std::exchange(first, false))
-            m_basicMaterial->Bind();
+    SetCurrentMaterial(m_basicMaterial.get());
+    for (auto const& object : m_objects)
         object->Render();
-    }
 }
 
 void Scene::Debug()
@@ -141,6 +136,33 @@ bool Scene::HitTest(HitTestContext& context) const
         object->HitTest(context);
 
     return context.Coarse.ClosestObject;
+}
+
+void Scene::SetCurrentMaterial(Material* material)
+{
+    m_currentMaterial = material;
+    if (!m_debugMaterialBackup)
+        m_currentMaterial->Bind();
+}
+
+void Scene::SetDebugShapes(bool enabled)
+{
+    if (enabled)
+    {
+        if (!m_debugShapesDepth++)
+        {
+            auto const backup = m_currentMaterial;
+            SetCurrentMaterial(m_debugShapesMaterial.get());
+            m_debugMaterialBackup = backup;
+        }
+    }
+    else
+    {
+        if (!m_debugShapesDepth)
+            std::terminate();
+        if (!--m_debugShapesDepth)
+            SetCurrentMaterial(std::exchange(m_debugMaterialBackup, nullptr));
+    }
 }
 
 }

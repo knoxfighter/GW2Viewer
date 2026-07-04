@@ -27,6 +27,7 @@ void Grid::Initialize(uint32 size, float spacing)
         vertices.push_back({ .Position = { pos,  halfSize, 0.0f }, .Color = i ? color : colorY * positive });
     }
     m_vertexBuffer = G::Services::Graphics.CreateVertexBuffer(vertices);
+    m_constantBuffer = G::Services::Graphics.CreateConstantBuffer(ObjectConstantBuffer { });
 }
 
 void Grid::Render()
@@ -34,13 +35,19 @@ void Grid::Render()
     if (!m_visible)
         return;
 
+    GetScene()->SetDebugShapes(true);
     uint32 stride = sizeof(Vertex);
     uint32 offset = 0;
 
     auto const context = G::Services::Graphics.Context;
     context->IASetVertexBuffers(0, 1, m_vertexBuffer.Ptr.GetAddressOf(), &stride, &offset);
     context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+
+    context->VSSetConstantBuffers(2, 1, m_constantBuffer.Ptr.GetAddressOf());
+    context->PSSetConstantBuffers(2, 1, m_constantBuffer.Ptr.GetAddressOf());
+
     context->Draw(m_vertexBuffer.Count, 0);
+    GetScene()->SetDebugShapes(false);
 }
 
 void Grid::Debug()
