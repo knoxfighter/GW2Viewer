@@ -163,6 +163,33 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
         m_layout.Chunks["FOOT"].try_emplace(0, &type->second);
     }
 
+    if (m_layout.Chunks["STAR"].empty())
+    {
+        auto const star = m_layout.Types.try_emplace(new byte(), Type
+        {
+            .Name = "<Star>",
+            .DeclaredSize = 24,
+            .Fields =
+            {
+                { .Name = "Position", .UnderlyingType = UnderlyingTypes::Float2 },
+                { .Name = "TexCoordMin", .UnderlyingType = UnderlyingTypes::Float2 },
+                { .Name = "TexCoordMax", .UnderlyingType = UnderlyingTypes::Float2 },
+            },
+        }).first;
+        auto const stars = m_layout.Types.try_emplace(new byte(), Type
+        {
+            .Name = "<Stars>",
+            .DeclaredSize = 16,
+            .Fields =
+            {
+                { .Name = "Scale", .UnderlyingType = UnderlyingTypes::Float },
+                { .Name = "Stars", .UnderlyingType = UnderlyingTypes::DwordArray, .ElementType = &star->second },
+                { .Name = "TextureFile", .UnderlyingType = UnderlyingTypes::FileName },
+            },
+        }).first;
+        m_layout.Chunks["STAR"].try_emplace(0, &stars->second);
+    }
+
     m_loaded = true;
 }
 
