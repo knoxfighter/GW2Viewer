@@ -2,6 +2,7 @@ export module GW2Viewer.UI.Controls:Model;
 import GW2Viewer.Common;
 import GW2Viewer.Common.FourCC;
 import GW2Viewer.Common.Token64;
+import GW2Viewer.Data.Archive;
 import GW2Viewer.Data.Game;
 import GW2Viewer.Data.Model;
 import GW2Viewer.Data.Pack.PackFile;
@@ -9,18 +10,25 @@ import GW2Viewer.Services.Graphics;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.UI.ImGui.ImGuizmo;
 import GW2Viewer.UI.Manager;
+import GW2Viewer.User.ArchiveIndex;
 import std;
 #include "Macros.h"
 
 export namespace GW2Viewer::UI::Controls
 {
 
+struct ModelOptions
+{
+    bool Grid = false;
+};
 struct Model
 {
+    ModelOptions Options;
+
     std::unique_ptr<Data::Pack::PackFile> PackFile;
 
-    Data::Model::Scene Scene { nullptr, "" };
-    Data::Model::Viewport Viewport { &Scene };
+    std::unique_ptr<Data::Model::Scene> Scene;
+    std::unique_ptr<Data::Model::Viewport> Viewport;
     Data::Model::SceneObject* HoveredObject = nullptr;
     Data::Model::SceneObject* SelectedObject = nullptr;
 
@@ -35,15 +43,14 @@ struct Model
     Degrees RotateSnap = 15.0f;
     float ScaleSnap = 5.0f;
 
-    Model(bool grid = false)
-    {
-        if (grid)
-            Scene.CreateGrid("").Initialize(10, 1.0f);
-        Viewport.SetCamera(&Scene.CreateCameraOrbit(""));
-    }
+    Model(ModelOptions options = { }) : Options(std::move(options)) { }
 
-    bool Load(uint32 fileID)
+    bool Load(uint32 fileID, Data::Archive::Kind kind = Data::Archive::Kind::Main)
     {
+        // Check file type in archive index if available - faster than unpacking the entire PackFile to check its FourCC
+        if (User::ArchiveIndex const& index = G::ArchiveIndex[kind]; index.IsLoaded() && index.GetFileMetadata(fileID).Type != User::ArchiveIndex::Type::Model)
+            return false;
+
         if (PackFile = G::Game.Archive.GetPackFile(fileID); PackFile && PackFile->GetFourCC() == fcc::MODL)
             return Load(*PackFile);
 
@@ -53,6 +60,8 @@ struct Model
     {
         if (file.GetFourCC() != fcc::MODL || !file.HasChunk(fcc::GEOM))
             return false;
+
+        CreateScene();
 
         for (auto const mesh : file.QueryChunk(fcc::GEOM)["meshes"])
         {
@@ -71,19 +80,21 @@ struct Model
             auto const meshName = ((Token64)mesh["meshName"]).GetString();
             std::string_view materialName = mesh["materialName"];
 
-            auto& m = Scene.CreateMesh(!materialName.empty() ? std::format("{} <c=#8>{}</c>", meshName.data(), materialName) : meshName.data());
-            m.LoadMesh(verts["mesh"]["fvf"],
+            auto& sceneMesh = Scene->CreateMesh(!materialName.empty() ? std::format("{} <c=#8>{}</c>", meshName.data(), materialName) : meshName.data());
+            sceneMesh.LoadMesh(verts["mesh"]["fvf"],
                 verts["vertexCount"],
                 verts["mesh"]["vertices[]"].GetPointer(),
                 geometry["indices"]["indices[]"].GetArraySize(),
                 geometry["indices"]["indices[]"].GetPointer(),
                 fileDiffuse,
                 fileNormal);
-            m.GetProperties().Visible = !((uint32)mesh["flags"] & 4); // LOD
+            sceneMesh.GetProperties().Visible = !((uint32)mesh["flags"] & 4); // LOD
         }
-        Viewport.GetCamera()->Focus(Scene);
+        Viewport->GetCamera()->Focus(*Scene);
         return true;
     }
+
+    Data::Model::OrbitCamera* GetCamera() const { return Viewport ? dynamic_cast<Data::Model::OrbitCamera*>(Viewport->GetCamera()) : nullptr; }
 
     struct DrawOptions
     {
@@ -92,12 +103,15 @@ struct Model
     };
     void Draw(DrawOptions const& options = { })
     {
+        if (!Scene || !Viewport)
+            return;
+
         scoped::Child("##ModelContainer", options.Size, ImGuiChildFlags_NavFlattened);
 
         auto const size = ImMax(options.Size, { 1, 1 });
-        Scene.Update();
-        Viewport.Resize({ (int32)size.x, (int32)size.y });
-        Viewport.Render();
+        Scene->Update();
+        Viewport->Resize({ (int32)size.x, (int32)size.y });
+        Viewport->Render();
         auto const cursor = I::GetCursorScreenPos();
         if (auto const texture = G::Game.Texture.Get(G::UI.Textures.Transparency))
         {
@@ -106,7 +120,7 @@ struct Model
                 for (pos.y = 0; pos.y < size.y; pos.y += texture->Texture->Height)
                     I::GetWindowDrawList()->AddImage(texture->Texture->Handle, cursor + pos, ImMin(cursor + pos + texSize, cursor + size), { }, ImMin(ImVec2(size - pos) / texSize, { 1, 1 }));
         }
-        I::Image((ImTextureID)Viewport.GetShaderResourceView(), size);
+        I::Image((ImTextureID)Viewport->GetShaderResourceView(), size);
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(cursor.x, cursor.y, size.x, size.y);
 
@@ -128,7 +142,7 @@ struct Model
             auto const rotation = Rotating ? I::GetIO().MouseDelta : ImVec2();
             auto const zoom = I::GetIO().MouseWheel;
             if (pan.x || pan.y || rotation.x || rotation.y || zoom)
-                Viewport.GetCamera()->HandleInput(pan, rotation, zoom);
+                Viewport->GetCamera()->HandleInput(pan, rotation, zoom);
         }
 
         if (HoveredObject)
@@ -140,7 +154,7 @@ struct Model
         {
             if (I::IsItemHovered() && !ImGuizmo::IsOver() && Select)
             {
-                if ((HoveredObject = Viewport.HitTest(I::GetIO().MousePos - cursor)))
+                if ((HoveredObject = Viewport->HitTest(I::GetIO().MousePos - cursor)))
                 {
                     HoveredObject->GetProperties().Highlighted = true;
                     if (I::IsMouseClicked(ImGuiMouseButton_Left))
@@ -176,7 +190,7 @@ struct Model
                 */
 
                 auto transform = SelectedObject->GetTransform();
-                if (ImGuizmo::Manipulate(*Viewport.GetCamera()->GetView().m, *Viewport.GetCamera()->GetProjection().m, Operation, Mode, *transform.m, snap ? &snap->x : nullptr))
+                if (ImGuizmo::Manipulate(*Viewport->GetCamera()->GetView().m, *Viewport->GetCamera()->GetProjection().m, Operation, Mode, *transform.m, snap ? &snap->x : nullptr))
                 {
                     SelectedObject->SetTransform(transform);
                 }
@@ -242,7 +256,7 @@ struct Model
                     I::TableNextColumn();
                     if (scoped::Font(G::UI.Fonts.DefaultLucide))
                         if (I::Button(ICON_LC_FOCUS " Focus"))
-                            Viewport.GetCamera()->Focus(SelectedObject ? *SelectedObject : Scene, true);
+                            Viewport->GetCamera()->Focus(SelectedObject ? *SelectedObject : *Scene, true);
                 }
             }
 
@@ -257,11 +271,21 @@ struct Model
                 if (scoped::WithStyleVarY(ImGuiStyleVar_ItemSpacing, 0))
                 if (scoped::WithStyleVar(ImGuiStyleVar_CellPadding, ImVec2()))
                 {
-                    Viewport.Debug();
-                    Scene.Debug();
+                    Viewport->Debug();
+                    Scene->Debug();
                 }
             }
         }
+    }
+
+private:
+    void CreateScene()
+    {
+        Scene = std::make_unique<Data::Model::Scene>(nullptr, "");
+        Viewport = std::make_unique<Data::Model::Viewport>(Scene.get());
+        if (Options.Grid)
+            Scene->CreateGrid("").Initialize(10, 1.0f);
+        Viewport->SetCamera(&Scene->CreateCameraOrbit(""));
     }
 };
 

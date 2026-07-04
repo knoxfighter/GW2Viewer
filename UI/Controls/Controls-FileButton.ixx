@@ -42,16 +42,18 @@ bool FileButton(uint32 fileID, Data::Archive::File const* file, FileButtonOption
         if (scoped::ItemTooltip(ImGuiHoveredFlags_DelayNone))
         {
             Texture(fileID, { .BestVersion = options.TooltipPreviewBestVersion });
+
+            static ModelOptions options { .Grid = false };
             static std::optional<Model> model;
             static uint32 modelFileID = 0;
             if (modelFileID != fileID)
             {
                 modelFileID = fileID;
                 model.reset();
-                model.emplace();
+                model.emplace(options);
                 if (model->Load(fileID))
                 {
-                    auto camera = (Data::Model::OrbitCamera*)model->Viewport.GetCamera();
+                    auto const camera = model->GetCamera();
                     camera->SetFoV(std::numbers::pi_v<float> / 8);
                     camera->SetRadius(camera->GetRadius() * 2);
                 }
@@ -60,7 +62,7 @@ bool FileButton(uint32 fileID, Data::Archive::File const* file, FileButtonOption
             }
             if (model)
             {
-                auto camera = (Data::Model::OrbitCamera*)model->Viewport.GetCamera();
+                auto const camera = model->GetCamera();
                 camera->SetYaw(camera->GetYaw() + Time::DeltaSecs);
                 model->Draw({ .Size = { 400, 400 } });
             }
