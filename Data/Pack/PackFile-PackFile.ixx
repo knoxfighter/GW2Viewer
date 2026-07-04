@@ -85,24 +85,27 @@ struct PackFile
         fcc ContentType;
     };
 
-    static PackFile* Alloc(size_t size)
-    {
-        auto* file = (PackFile*)operator new(size + sizeof(PackFileChunk::ChunkHeader));
-        memset(file, 0, size + sizeof(PackFileChunk::ChunkHeader));
-        return file;
-    }
-
-    FileHeader Header; // hdr
-    byte Data[];
-
-    PackFile() = delete;
+    PackFile(uint32 size) : m_ownsData(true), m_data(new byte const[size + sizeof(PackFileChunk::ChunkHeader)] { }, size) { }
+    PackFile(std::span<byte const> data) : m_ownsData(false), m_data(data) { }
     PackFile(PackFile const&) = delete;
     PackFile(PackFile&&) = delete;
-    ~PackFile();
+    ~PackFile() { if (m_ownsData) delete m_data.data(); }
 
-    fcc GetFourCC() const { return Header.ContentType; }
-    std::string_view GetFourCCStringView() const { return { (char const*)&Header.ContentType, strnlen((char const*)&Header.ContentType, 4) }; }
+    void FinishLoading();
+
+    FileHeader const& GetHeader() const { return *(FileHeader const*)m_data.data(); }
+    std::span<byte const> GetData() const { return { m_data.data() + sizeof(FileHeader), m_data.size() - sizeof(FileHeader) }; }
+    std::span<byte const> GetRawData() const { return m_data; }
+    std::span<byte> GetRawWritableData() { if (!m_ownsData) std::terminate(); return { (byte*)m_data.data(), m_data.size() }; }
+
+    fcc GetFourCC() const { return GetHeader().ContentType; }
+    std::string_view GetFourCCStringView() const { return { (char const*)&GetHeader().ContentType, strnlen((char const*)&GetHeader().ContentType, 4) }; }
     std::string GetFourCCString() const { return std::string { GetFourCCStringView() }; }
+
+    bool Is64Bit() const { return GetHeader().Is64Bit; }
+
+    auto& CreateLayout() { return *(m_layout = std::make_unique<Layout::Container>()); }
+    auto GetLayout() const { return m_layout.get(); }
 
     template<typename T>
     class ChunkIteratorBase
@@ -126,39 +129,32 @@ struct PackFile
     using ChunkIterator = ChunkIteratorBase<PackFileChunk>;
     using ConstChunkIterator = ChunkIteratorBase<PackFileChunk const>;
 
-    [[nodiscard]] bool HasChunk(fcc magic) const
+    [[nodiscard]] bool HasChunk(fcc fcc) const
     {
         for (auto const& chunk : *this)
-            if (chunk.Header.Magic == magic)
+            if (chunk.GetFourCC() == fcc)
                 return true;
         return false;
     }
 
-    [[nodiscard]] PackFileChunk const& GetFirstChunk() const { return *begin(); }
-    [[nodiscard]] PackFileChunk const& GetChunk(fcc magic) const
+    [[nodiscard]] PackFileChunk const& GetChunk(fcc fcc) const
     {
-        for (auto itr = begin(); ; ++itr)
-            if (itr->Header.Magic == magic)
-                return *itr;
+        for (auto const& chunk : *this)
+            if (chunk.GetFourCC() == fcc)
+                return chunk;
+        std::terminate();
     }
     [[nodiscard]] Layout::Traversal::QueryChunk QueryChunk(fcc magic) const;
 
-    [[nodiscard]] ChunkIterator begin() { return (PackFileChunk*)&Data; }
-    [[nodiscard]] ConstChunkIterator begin() const { return (PackFileChunk const*)&Data; }
-    [[nodiscard]] ChunkIterator end()
-    {
-        auto itr = begin();
-        while (itr->Header.Magic != fcc::Empty)
-            ++itr;
-        return itr;
-    }
-    [[nodiscard]] ConstChunkIterator end() const
-    {
-        auto itr = begin();
-        while (itr->Header.Magic != fcc::Empty)
-            ++itr;
-        return itr;
-    }
+    [[nodiscard]] ChunkIterator begin() { return (PackFileChunk*)GetData().data(); }
+    [[nodiscard]] ConstChunkIterator begin() const { return (PackFileChunk const*)GetData().data(); }
+    [[nodiscard]] ChunkIterator end() { return (PackFileChunk*)(GetData().data() + GetData().size()); }
+    [[nodiscard]] ConstChunkIterator end() const { return (PackFileChunk const*)(GetData().data() + GetData().size()); }
+
+private:
+    bool m_ownsData;
+    std::span<byte const> m_data;
+    std::unique_ptr<Layout::Container> m_layout;
 };
 
 fcc PackFileChunk::GetDisambiguatedFourCC(PackFile const& file) const

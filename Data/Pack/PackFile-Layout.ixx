@@ -1,5 +1,6 @@
 export module GW2Viewer.Data.Pack.PackFile:Layout;
 import GW2Viewer.Common;
+import GW2Viewer.Common.FourCC;
 import GW2Viewer.Data.Pack;
 import std;
 
@@ -121,6 +122,12 @@ struct Type
         return std::ranges::fold_left(Fields, 0u, [x64](uint32 size, Field const& field) { return size + field.Size(x64); });
     }
     mutable std::array<uint32, 2> CachedSize { };
+};
+
+struct Container
+{
+    std::unordered_map<byte const*, Type> Types;
+    std::unordered_map<fcc, std::unordered_map<uint32, Type const*>> Chunks;
 };
 
 uint32 Field::CalculateSize(bool x64) const

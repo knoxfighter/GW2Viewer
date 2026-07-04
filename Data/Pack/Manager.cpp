@@ -201,7 +201,7 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
     m_loaded = true;
 }
 
-void Manager::LoadEmbeddedLayout(LayoutContainer& container, PackFile const& file, PackFileChunk const& chunk)
+void Manager::LoadEmbeddedLayout(PackFile& file, PackFileChunk const& chunk)
 {
     using namespace Layout;
     auto const footer = chunk.GetFooter();
@@ -212,7 +212,8 @@ void Manager::LoadEmbeddedLayout(LayoutContainer& container, PackFile const& fil
     if (p >= (byte const*)chunk.GetNextChunk() || *(UnderlyingTypes const*)p == UnderlyingTypes::StructDefinition)
         return;
 
-    auto addType = [&container](this auto&& addType, Traversal::FieldIterator fields) -> Type const*
+    auto& layout = file.CreateLayout();
+    auto addType = [&layout](this auto&& addType, Traversal::FieldIterator fields) -> Type const*
     {
         if (!fields)
             return nullptr;
@@ -221,7 +222,7 @@ void Manager::LoadEmbeddedLayout(LayoutContainer& container, PackFile const& fil
         {
             auto const underlyingType = (UnderlyingTypes)(uint16)field["UnderlyingType"];
             if (underlyingType == UnderlyingTypes::StructDefinition)
-                return typeFields.empty() ? nullptr : &container.Types.try_emplace(field.GetPointer(), field["Name"], field["Size"], std::move(typeFields)).first->second;
+                return typeFields.empty() ? nullptr : &layout.Types.try_emplace(field.GetPointer(), field["Name"], field["Size"], std::move(typeFields)).first->second;
             if (underlyingType == UnderlyingTypes::Variant)
                 throw new std::exception("Variant field in embedded PackFile layout is not supported");
             typeFields.emplace_back(
@@ -235,7 +236,7 @@ void Manager::LoadEmbeddedLayout(LayoutContainer& container, PackFile const& fil
     };
 
     if (auto const type = addType(*Traversal::QueryFields(file, p, *m_layout.Chunks[fcc::FOOT].begin()->second, "Fields").begin()))
-        container.Chunks[chunk.GetDisambiguatedFourCC(file)].try_emplace(chunk.Header.Version, type);
+        layout.Chunks[chunk.GetDisambiguatedFourCC(file)].try_emplace(chunk.Header.Version, type);
 }
 
 }

@@ -311,7 +311,17 @@ public:
         }
         return 0;
     }
-    std::unique_ptr<Pack::PackFile> GetPackFile(uint32 fileID);
+    std::unique_ptr<Pack::PackFile> GetPackFile(uint32 fileID)
+    {
+        std::unique_ptr<Pack::PackFile> result;
+        if (auto size = GetFileSize(fileID))
+        {
+            result = std::make_unique<Pack::PackFile>(size);
+            GetFile(fileID, result->GetRawWritableData());
+            result->FinishLoading();
+        }
+        return result;
+    }
 
 private:
     static constexpr uint32 BLOCK_SIZE = 0x10000;

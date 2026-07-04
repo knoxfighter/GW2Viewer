@@ -15,13 +15,8 @@ class Manager
 public:
     auto GetChunkVersions(PackFile const& file, PackFileChunk const& chunk)
     {
-        LayoutContainer* container;
-        {
-            std::scoped_lock _(m_embeddedLayoutsLock);
-            container = Utils::Container::Find(m_embeddedLayouts, &file);
-        }
-        if (container && !container->Chunks.empty())
-            return Utils::Container::Find(container->Chunks, chunk.GetDisambiguatedFourCC(file));
+        if (auto const layout = file.GetLayout(); layout && !layout->Chunks.empty())
+            return Utils::Container::Find(layout->Chunks, chunk.GetDisambiguatedFourCC(file));
 
         return Utils::Container::Find(m_layout.Chunks, chunk.GetDisambiguatedFourCC(file));
     }
@@ -36,36 +31,11 @@ public:
     void Load(std::filesystem::path const& path, Utils::Async::ProgressBarContext& progress);
     bool IsLoaded() const { return m_loaded; }
 
-    void LoadEmbeddedLayout(PackFile const& file, PackFileChunk const& chunk)
-    {
-        LayoutContainer* container;
-        bool load;
-        {
-            std::scoped_lock _(m_embeddedLayoutsLock);
-            auto&& [itr, added] = m_embeddedLayouts.try_emplace(&file);
-            container = &itr->second;
-            load = added;
-        }
-        if (load)
-            LoadEmbeddedLayout(*container, file, chunk);
-    }
-    void DeleteEmbeddedLayout(PackFile const& file)
-    {
-        std::scoped_lock _(m_embeddedLayoutsLock);
-        m_embeddedLayouts.erase(&file);
-    }
+    void LoadEmbeddedLayout(PackFile& file, PackFileChunk const& chunk);
 
 private:
     bool m_loaded = false;
-    struct LayoutContainer
-    {
-        std::unordered_map<byte const*, Layout::Type> Types;
-        std::unordered_map<fcc, std::unordered_map<uint32, Layout::Type const*>> Chunks;
-    };
-    LayoutContainer m_layout;
-    std::unordered_map<PackFile const*, LayoutContainer> m_embeddedLayouts;
-    std::mutex m_embeddedLayoutsLock;
-    void LoadEmbeddedLayout(LayoutContainer& container, PackFile const& file, PackFileChunk const& chunk);
+    Layout::Container m_layout;
 };
 
 }

@@ -7,7 +7,6 @@ import GW2Viewer.Data.Encryption.RC4;
 import GW2Viewer.Data.Pack.PackFile;
 import GW2Viewer.Utils.Async.ProgressBarContext;
 import std;
-import <cassert>;
 
 export namespace GW2Viewer::Data::Voice
 {
@@ -97,11 +96,10 @@ public:
             file = archiveFile->GetPackFile();
             if (!file)
                 return { };
-            assert(file->Header.HeaderSize == sizeof(file->Header));
         }
 
-        if (auto const& field = file->QueryChunk(fcc::BKCK)["asndFile"][voiceIndex]["audioData[]"])
-            if (auto const& audioData = ((Pack::PackFile const*)field.GetPointer())->QueryChunk(fcc::ASND)["audioData[]"])
+        if (auto const field = file->QueryChunk(fcc::BKCK)["asndFile"][voiceIndex]["audioData[]"])
+            if (auto const audioData = Pack::PackFile({ field.GetPointer(), field.GetArraySize() }).QueryChunk(fcc::ASND)["audioData[]"])
                 return { audioData.GetPointer(), audioData.GetArraySize() };
 
         return { };

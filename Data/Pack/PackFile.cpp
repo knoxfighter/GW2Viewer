@@ -6,9 +6,10 @@ import std;
 namespace GW2Viewer::Data::Pack
 {
 
-PackFile::~PackFile()
+void PackFile::FinishLoading()
 {
-    G::Game.Pack.DeleteEmbeddedLayout(*this);
+    for (auto const& chunk : *this)
+        G::Game.Pack.LoadEmbeddedLayout(*this, chunk);
 }
 
 Layout::Traversal::QueryChunk PackFile::QueryChunk(fcc magic) const { return { *this, GetChunk(magic) }; }

@@ -44,14 +44,14 @@ struct Model
 
     bool Load(uint32 fileID)
     {
-        if (PackFile = G::Game.Archive.GetPackFile(fileID); PackFile && PackFile->Header.ContentType == fcc::MODL)
+        if (PackFile = G::Game.Archive.GetPackFile(fileID); PackFile && PackFile->GetFourCC() == fcc::MODL)
             return Load(*PackFile);
 
         return false;
     }
     bool Load(Data::Pack::PackFile const& file)
     {
-        if (file.Header.ContentType != fcc::MODL || !file.HasChunk(fcc::GEOM))
+        if (file.GetFourCC() != fcc::MODL || !file.HasChunk(fcc::GEOM))
             return false;
 
         for (auto const mesh : file.QueryChunk(fcc::GEOM)["meshes"])

@@ -231,9 +231,7 @@ private:
     {
         #ifdef NATIVE
         auto& file = *loaded.File;
-        assert(file.Header.HeaderSize == sizeof(file.Header));
-        auto& chunk = file.GetFirstChunk();
-        assert(chunk.Header.HeaderSize == sizeof(chunk.Header));
+        auto& chunk = file.GetChunk(fcc::Main);
         auto& content = (PackContent&)chunk.Data;
 
         if (!m_rootContentFile)
@@ -290,7 +288,7 @@ private:
                 #endif
                 {
                     #ifdef NATIVE
-                    *(byte**)&data[relocOffset] = &((PackContent*)&m_loadedContentFiles.at(targetFileIndex).File->GetFirstChunk().Data)->content[*(size_t*)&data[relocOffset]];
+                    *(byte**)&data[relocOffset] = &((PackContent*)&m_loadedContentFiles.at(targetFileIndex).File->GetChunk(fcc::Main).Data)->content[*(size_t*)&data[relocOffset]];
                     #else
                     *(byte**)&data[relocOffset] = m_loadedContentFiles.at(targetFileIndex).File->QueryChunk(fcc::Main)["content"][*(size_t*)&data[relocOffset]];
                     #endif
@@ -505,7 +503,7 @@ private:
                 {
                     auto const* source = &data[sourceOffset];
                     #ifdef NATIVE
-                    auto const* target = &((PackContent*)&m_loadedContentFiles[targetFileIndex].File->GetFirstChunk().Data)->content[targetOffset];
+                    auto const* target = &((PackContent*)&m_loadedContentFiles[targetFileIndex].File->GetChunk(fcc::Main).Data)->content[targetOffset];
                     #else
                     auto const* target = &m_loadedContentFiles[targetFileIndex].File->QueryChunk(fcc::Main)["content"][targetOffset];
                     #endif

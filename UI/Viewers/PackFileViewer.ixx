@@ -701,12 +701,12 @@ struct PackFileViewer : FileViewer
                                         if (field.IsArrayIterator())
                                         {
                                             if (resultsAsTree)
-                                                DrawPackFileType(p, PackFile->Header.Is64Bit, &field.GetArrayType());
+                                                DrawPackFileType(p, PackFile->Is64Bit(), &field.GetArrayType());
                                             else
-                                                DrawPackFileFieldValue(p, PackFile->Header.Is64Bit, field.GetField().ElementType->Fields.front());
+                                                DrawPackFileFieldValue(p, PackFile->Is64Bit(), field.GetField().ElementType->Fields.front());
                                         }
                                         else
-                                            DrawPackFileFieldValue(p, PackFile->Header.Is64Bit, field.GetField());
+                                            DrawPackFileFieldValue(p, PackFile->Is64Bit(), field.GetField());
                                     }
                                 }
                             }
@@ -778,7 +778,7 @@ struct PackFileViewer : FileViewer
             I::SameLine();
             if (scoped::Group())
                 if (auto const type = G::Game.Pack.GetChunkType(*PackFile, chunk))
-                    DrawPackFileType(p, PackFile->Header.Is64Bit, type);
+                    DrawPackFileType(p, PackFile->Is64Bit(), type);
         }
         if (AutoFold == AutoFoldState::Unknown)
             AutoFold = Time::Now() >= start + 250ms ? AutoFoldState::NeedsFolding : AutoFoldState::NoNeed;

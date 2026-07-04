@@ -438,7 +438,7 @@ FieldIterator::Generator<T> QueryFields(FieldIterator::Bounds bounds, std::strin
 template<typename T = FieldIterator>
 FieldIterator::Generator<T> QueryFields(PackFile const& file, byte const* data, Type const& type, std::string_view path)
 {
-    for (auto&& result : QueryFields<T>(FieldIterator::MakeFieldIteratorBounds(data, file.Header.Is64Bit, type), path))
+    for (auto&& result : QueryFields<T>(FieldIterator::MakeFieldIteratorBounds(data, file.Is64Bit(), type), path))
         co_yield result;
 }
 
