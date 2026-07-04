@@ -74,6 +74,7 @@ enum class RealTypes : uint16
     Unk1,
     Flags,
     Token,
+    Unk4, // ModelMaterialData.sortLayer
 };
 
 constexpr std::array<uint32, (uint32)UnderlyingTypes::Max> UnderlyingTypeSizes { { 0, 0, 0, 0, 0, 1, 4, 8, 16, 24, 4, 0, 4, 8, 12, 16, 0, 8, 0, 0, 0, 2, 16, 3, 8, 16, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 8 } };

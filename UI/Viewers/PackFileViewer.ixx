@@ -765,8 +765,7 @@ struct PackFileViewer : FileViewer
         if (scoped::WithStyleVarY(ImGuiStyleVar_FramePadding, 0))
         for (auto const& chunk : *PackFile)
         {
-            std::string fcc { (char const*)&chunk.Header.Magic, 4 };
-            fcc.resize(strlen(fcc.c_str()));
+            std::string const fcc { (char const*)&chunk.Header.Magic, 4 };
             scoped::WithID(fcc.c_str());
             auto const* p = chunk.Data;
             I::Dummy({ GetFoldButtonWidth(), 0 });
@@ -780,9 +779,8 @@ struct PackFileViewer : FileViewer
             I::Dummy({ GetFoldButtonWidth() + 25, 0 });
             I::SameLine();
             if (scoped::Group())
-                if (auto const chunkVersions = G::Game.Pack.GetChunk(fcc))
-                    if (auto const itrChunkVersion = chunkVersions->find(chunk.Header.Version); itrChunkVersion != chunkVersions->end())
-                        DrawPackFileType(p, PackFile->Header.Is64Bit, itrChunkVersion->second);
+                if (auto const type = G::Game.Pack.GetChunkType(*PackFile, chunk))
+                    DrawPackFileType(p, PackFile->Header.Is64Bit, type);
         }
         if (AutoFold == AutoFoldState::Unknown)
             AutoFold = Time::Now() >= start + 250ms ? AutoFoldState::NeedsFolding : AutoFoldState::NoNeed;

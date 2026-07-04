@@ -93,6 +93,7 @@
     <ClCompile Include="Content\MapCinematic.ixx" />
     <ClCompile Include="Content\MysticForgeEntry.ixx" />
     <ClCompile Include="Content\Vendor.ixx" />
+    <ClCompile Include="Data\Archive\Archive.cpp" />
     <ClCompile Include="Data\Archive\Archive.ixx" />
     <ClCompile Include="Data\Archive\Manager.cpp" />
     <ClCompile Include="Data\Archive\Manager.ixx" />

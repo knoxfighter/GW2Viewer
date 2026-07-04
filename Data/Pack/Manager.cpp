@@ -31,7 +31,7 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
         void* PostProcessFunction;
         void* Unk;
     };
-    auto collect = [&](PackFileField* fields, auto& collect) -> Type const*
+    auto collect = [&](this auto&& collect, PackFileField* fields) -> Type const*
     {
         if (!fields)
             return nullptr;
@@ -43,7 +43,7 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
             if (field->UnderlyingType != UnderlyingTypes::StructDefinition && !scanner.rdata.Valid(field->ElementFields) && !scanner.data.Valid(field->ElementFields))
                 return nullptr;
             if (field->UnderlyingType == UnderlyingTypes::StructDefinition)
-                return &m_types.try_emplace((byte const*)fields,
+                return &m_layout.Types.try_emplace((byte const*)fields,
                     field->Name,
                     field->Size,
                     std::vector { std::from_range,
@@ -54,8 +54,8 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                             field.UnderlyingType,
                             field.RealType,
                             field.Size,
-                            field.UnderlyingType != UnderlyingTypes::Variant ? collect(field.ElementFields, collect) : nullptr,
-                            field.UnderlyingType == UnderlyingTypes::Variant ? std::vector { std::from_range, std::span { field.VariantElementFields, field.Size } | std::views::transform([&collect](auto* fields) { return collect(fields, collect); }) } : std::vector<Type const*> { },
+                            field.UnderlyingType != UnderlyingTypes::Variant ? collect(field.ElementFields) : nullptr,
+                            field.UnderlyingType == UnderlyingTypes::Variant ? std::vector { std::from_range, std::span { field.VariantElementFields, field.Size } | std::views::transform([&collect](auto* fields) { return collect(fields); }) } : std::vector<Type const*> { },
                         };
                     })
                 }).first->second;
@@ -84,8 +84,8 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                     if (!scanner.text.Valid(version.PostProcessFunction))
                         goto fail;
 
-                    if (auto type = collect(version.Fields, collect))
-                        m_chunks[std::string((char const*)p, p[3] ? 4 : 3)].try_emplace(versionNum, type);
+                    if (auto type = collect(version.Fields))
+                        m_layout.Chunks[std::string((char const*)p, p[3] ? 4 : 3)].try_emplace(versionNum, type);
                     else
                         goto fail;
                 }
@@ -98,9 +98,9 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
             progress = offset;
     }
 
-    if (m_chunks["AFNT"].empty())
+    if (m_layout.Chunks["AFNT"].empty())
     {
-        auto const filename = m_types.try_emplace(new byte(), Type
+        auto const filename = m_layout.Types.try_emplace(new byte(), Type
         {
             .Name = "<Font File>",
             .DeclaredSize = 6,
@@ -109,7 +109,7 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                 { .Name = "File", .UnderlyingType = UnderlyingTypes::FileName },
             },
         }).first;
-        auto const font = m_types.try_emplace(new byte(), Type
+        auto const font = m_layout.Types.try_emplace(new byte(), Type
         {
             .Name = "<Font>",
             .DeclaredSize = 68,
@@ -124,7 +124,7 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                 { .Name = "Files", .UnderlyingType = UnderlyingTypes::InlineArray, .ArraySize = 13, .ElementType = &filename->second },
             },
         }).first;
-        auto const fonts = m_types.try_emplace(new byte(), Type
+        auto const fonts = m_layout.Types.try_emplace(new byte(), Type
         {
             .Name = "<Fonts>",
             .DeclaredSize = 8,
@@ -133,10 +133,74 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                 { .Name = "Fonts", .UnderlyingType = UnderlyingTypes::DwordArray, .ElementType = &font->second },
             },
         }).first;
-        m_chunks["AFNT"].try_emplace(0, &fonts->second);
+        m_layout.Chunks["AFNT"].try_emplace(0, &fonts->second);
+    }
+
+    if (m_layout.Chunks["FOOT"].empty())
+    {
+        auto const field = m_layout.Types.try_emplace(new byte(), Type
+        {
+            .Name = "<Field>",
+            .DeclaredSize = 24,
+        }).first;
+        auto const type = m_layout.Types.try_emplace(new byte(), Type
+        {
+            .Name = "<Type>",
+            .DeclaredSize = 24,
+            .Fields =
+            {
+                { .Name = "Fields", .UnderlyingType = UnderlyingTypes::InlineArray, .ArraySize = 9999, .ElementType = &field->second },
+            },
+        }).first;
+        field->second.Fields =
+        {
+            { .Name = "UnderlyingType", .UnderlyingType = UnderlyingTypes::Word },
+            { .Name = "RealType", .UnderlyingType = UnderlyingTypes::Word },
+            { .Name = "Name", .UnderlyingType = UnderlyingTypes::String },
+            { .Name = "Type", .UnderlyingType = UnderlyingTypes::Ptr, .ElementType = &type->second },
+            { .Name = "Size", .UnderlyingType = UnderlyingTypes::Dword },
+        };
+        m_layout.Chunks["FOOT"].try_emplace(0, &type->second);
     }
 
     m_loaded = true;
+}
+
+void Manager::LoadEmbeddedLayout(LayoutContainer& container, PackFile const& file, PackFileChunk const& chunk)
+{
+    using namespace Layout;
+    auto const footer = chunk.GetFooter();
+    if (!footer || !footer->LayoutOffset)
+        return;
+
+    auto const p = &chunk.Data[footer->LayoutOffset + 4];
+    if (p >= (byte const*)chunk.GetNextChunk() || *(UnderlyingTypes const*)p == UnderlyingTypes::StructDefinition)
+        return;
+
+    auto addType = [&container](this auto&& addType, Traversal::FieldIterator fields) -> Type const*
+    {
+        if (!fields)
+            return nullptr;
+        std::vector<Field> typeFields;
+        for (auto const field : fields)
+        {
+            auto const underlyingType = (UnderlyingTypes)(uint16)field["UnderlyingType"];
+            if (underlyingType == UnderlyingTypes::StructDefinition)
+                return typeFields.empty() ? nullptr : &container.Types.try_emplace(field.GetPointer(), field["Name"], field["Size"], std::move(typeFields)).first->second;
+            if (underlyingType == UnderlyingTypes::Variant)
+                throw new std::exception("Variant field in embedded PackFile layout is not supported");
+            typeFields.emplace_back(
+                field["Name"],
+                underlyingType,
+                (RealTypes)(uint16)field["RealType"],
+                field["Size"],
+                underlyingType != UnderlyingTypes::Variant ? addType(field["Type"]["Fields"]) : nullptr);
+        }
+        return nullptr;
+    };
+
+    if (auto const type = addType(*Traversal::QueryFields(file, p, *m_layout.Chunks["FOOT"].begin()->second, "Fields").begin()))
+        container.Chunks[std::string((char const*)&chunk.Header.Magic, strnlen((char const*)&chunk.Header.Magic, 4))].try_emplace(chunk.Header.Version, type);
 }
 
 }

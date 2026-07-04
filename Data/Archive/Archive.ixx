@@ -311,16 +311,7 @@ public:
         }
         return 0;
     }
-    std::unique_ptr<Pack::PackFile> GetPackFile(uint32 fileID)
-    {
-        std::unique_ptr<Pack::PackFile> result;
-        if (auto size = GetFileSize(fileID))
-        {
-            result.reset(Pack::PackFile::Alloc(size));
-            GetFile(fileID, { (byte*)result.get(), size });
-        }
-        return result;
-    }
+    std::unique_ptr<Pack::PackFile> GetPackFile(uint32 fileID);
 
 private:
     static constexpr uint32 BLOCK_SIZE = 0x10000;

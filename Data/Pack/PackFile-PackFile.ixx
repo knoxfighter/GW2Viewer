@@ -22,7 +22,20 @@ struct PackFileChunk
         uint32 NextChunkOffset;
         uint16 Version;
         uint16 HeaderSize;
-        uint32 DescriptorOffset;
+        uint32 FixupsOffset;
+    };
+    struct Fixups
+    {
+        uint32 Count;
+        uint32 Offsets[];
+    };
+    struct ChunkFooter
+    {
+        uint32 UnkOffset;
+        uint32 LayoutOffset;
+        uint16 Version;
+        uint16 FooterSize;
+        fcc Magic;
     };
 
     ChunkHeader Header;
@@ -31,6 +44,18 @@ struct PackFileChunk
     PackFileChunk() = delete;
     PackFileChunk(PackFileChunk const&) = delete;
     PackFileChunk(PackFileChunk&&) = delete;
+
+    PackFileChunk const* GetNextChunk() const { return (PackFileChunk const*)((byte const*)this + offsetof(PackFileChunk::ChunkHeader, NextChunkOffset) + sizeof(Header.NextChunkOffset) + Header.NextChunkOffset); }
+    std::span<uint32 const> GetFixupOffsets() const
+    {
+        auto const fixups = (Fixups const*)((byte const*)this + offsetof(PackFileChunk::ChunkHeader, FixupsOffset) + sizeof(Header.FixupsOffset) + Header.FixupsOffset);
+        return { fixups->Offsets, fixups->Count };
+    }
+    ChunkFooter const* GetFooter() const
+    {
+        auto const footer = (ChunkFooter const*)GetNextChunk() - 1;
+        return footer->Magic == fcc::FOOT && !footer->Version && footer->FooterSize == sizeof(ChunkFooter) ? footer : nullptr;
+    }
 };
 struct PackFile
 {
@@ -58,6 +83,7 @@ struct PackFile
     PackFile() = delete;
     PackFile(PackFile const&) = delete;
     PackFile(PackFile&&) = delete;
+    ~PackFile();
 
     template<typename T>
     class ChunkIteratorBase
@@ -72,7 +98,7 @@ struct PackFile
         ChunkIteratorBase& operator=(ChunkIteratorBase&&) = default;
 
         bool operator==(ChunkIteratorBase const&) const = default;
-        ChunkIteratorBase& operator++() { m_pos = (T*)((byte const*)m_pos + m_pos->Header.NextChunkOffset + offsetof(PackFileChunk::ChunkHeader, NextChunkOffset) + sizeof(m_pos->Header.NextChunkOffset)); return *this; }
+        ChunkIteratorBase& operator++() { m_pos = const_cast<T*>(m_pos->GetNextChunk()); return *this; }
         ChunkIteratorBase operator++(int) { auto copy = *this; ++*this; return copy; }
 
         T& operator*() const { return *m_pos; }

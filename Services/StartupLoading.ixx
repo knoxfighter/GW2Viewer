@@ -86,7 +86,7 @@ struct StartupLoading
         });
         AddTask({
             .Description = "Loading archives",
-            .Requires = { Config },
+            .Requires = { Config, PackFileLayout },
             .Provides = { Archive },
             .Handler = [](ProgressBarContext& progress)
             {

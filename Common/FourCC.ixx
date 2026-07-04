@@ -88,6 +88,7 @@ export enum class fcc : uint32
     FourCC(STAR),
 
     // PF Chunk FourCC
+    FourCC(FOOT),
     FourCC(BKCK),
     FourCC(Main),
     FourCC(vari),

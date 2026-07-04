@@ -6,6 +6,11 @@ import std;
 namespace GW2Viewer::Data::Pack
 {
 
+PackFile::~PackFile()
+{
+    G::Game.Pack.DeleteEmbeddedLayout(*this);
+}
+
 Layout::Traversal::QueryChunk PackFile::QueryChunk(fcc magic) const { return { *this, GetChunk(magic) }; }
 
 }
@@ -13,6 +18,6 @@ Layout::Traversal::QueryChunk PackFile::QueryChunk(fcc magic) const { return { *
 namespace GW2Viewer::Data::Pack::Layout::Traversal
 {
 
-std::map<uint32, Type const*> const* GetChunk(std::string_view name) { return G::Game.Pack.GetChunk(name); }
+Type const* GetChunkType(PackFile const& file, PackFileChunk const& chunk) { return G::Game.Pack.GetChunkType(file, chunk); }
 
 }

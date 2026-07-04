@@ -12,9 +12,7 @@ import <experimental/generator>;
 
 namespace GW2Viewer::Data::Pack::Layout::Traversal
 {
-
-std::map<uint32, Type const*> const* GetChunk(std::string_view name);
-
+Type const* GetChunkType(PackFile const& file, PackFileChunk const& chunk);
 }
 
 export namespace GW2Viewer::Data::Pack::Layout::Traversal
@@ -438,12 +436,18 @@ FieldIterator::Generator<T> QueryFields(FieldIterator::Bounds bounds, std::strin
 }
 
 template<typename T = FieldIterator>
+FieldIterator::Generator<T> QueryFields(PackFile const& file, byte const* data, Type const& type, std::string_view path)
+{
+    for (auto&& result : QueryFields<T>(FieldIterator::MakeFieldIteratorBounds(data, file.Header.Is64Bit, type), path))
+        co_yield result;
+}
+
+template<typename T = FieldIterator>
 FieldIterator::Generator<T> QueryFields(PackFile const& file, PackFileChunk const& chunk, std::string_view path)
 {
-    if (auto const chunkInfo = GetChunk(std::string_view { (char const*)&chunk.Header.Magic, 4 }))
-        if (auto const itrChunkVersion = chunkInfo->find(chunk.Header.Version); itrChunkVersion != chunkInfo->end())
-            for (auto&& result : QueryFields<T>(FieldIterator::MakeFieldIteratorBounds(chunk.Data, file.Header.Is64Bit, *itrChunkVersion->second), path))
-                co_yield result;
+    if (auto const type = GetChunkType(file, chunk))
+        for (auto&& result : QueryFields<T>(file, chunk.Data, *type, path))
+            co_yield result;
 }
 
 template<typename T = FieldIterator>
