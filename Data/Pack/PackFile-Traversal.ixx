@@ -120,7 +120,7 @@ public:
     {
         switch (GetField().UnderlyingType)
         {
-            case UnderlyingTypes::InlineArray: return MakeArrayIteratorBounds(GetPointer(), *this, m_x64 ? Get<GenericDwordArray<int64>>().size() : Get<GenericDwordArray<int32>>().size());
+            case UnderlyingTypes::InlineArray: return MakeArrayIteratorBounds(GetPointer(), *this, GetField().ArraySize);
             case UnderlyingTypes::DwordArray:
             case UnderlyingTypes::DwordPtrArray: return MakeArrayIteratorBounds(m_x64 ? Get<GenericDwordArray<int64>>().data() : Get<GenericDwordArray<int32>>().data(), *this, m_x64 ? Get<GenericDwordArray<int64>>().size() : Get<GenericDwordArray<int32>>().size());
             case UnderlyingTypes::WordArray:
