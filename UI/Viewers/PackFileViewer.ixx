@@ -690,12 +690,11 @@ struct PackFileViewer : FileViewer
                                 uint32 i = 0;
                                 for (auto const& chunk : *PackFile)
                                 {
-                                    std::string const fcc { (char const*)&chunk.Header.Magic, 4 };
                                     for (auto const& field : Data::Pack::Layout::Traversal::QueryFields(*PackFile, chunk, query))
                                     {
                                         auto p = field.GetPointer();
                                         I::TableNextRow();
-                                        I::TableNextColumn(); I::Text("<c=#4>%s</c>", fcc.c_str());
+                                        I::TableNextColumn(); I::Text("<c=#4>%s</c>", chunk.GetFourCCString().c_str());
                                         I::TableNextColumn(); I::Text("<c=#4>#</c><c=#8>%u</c>", i++);
                                         I::TableNextColumn();
                                         if (scoped::WithStyleVarY(ImGuiStyleVar_FramePadding, 0))
@@ -765,14 +764,13 @@ struct PackFileViewer : FileViewer
         if (scoped::WithStyleVarY(ImGuiStyleVar_FramePadding, 0))
         for (auto const& chunk : *PackFile)
         {
-            std::string const fcc { (char const*)&chunk.Header.Magic, 4 };
-            scoped::WithID(fcc.c_str());
+            scoped::WithID(chunk.GetFourCCString().c_str());
             auto const* p = chunk.Data;
             I::Dummy({ GetFoldButtonWidth(), 0 });
             I::SameLine();
             if (scoped::Group())
             {
-                I::TextUnformatted(std::format("Chunk <{}>", fcc.c_str()).c_str());
+                I::TextUnformatted(std::format("Chunk <{}>", chunk.GetFourCCString().c_str()).c_str());
                 if (Folded(p, 0))
                     continue;
             }

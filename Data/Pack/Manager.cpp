@@ -85,7 +85,15 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                         goto fail;
 
                     if (auto type = collect(version.Fields))
-                        m_layout.Chunks[std::string((char const*)p, p[3] ? 4 : 3)].try_emplace(versionNum, type);
+                    {
+                        auto fcc = *(GW2Viewer::fcc const*)p;
+                        if (PackFileChunk::IsAmbiguousFourCC(fcc))
+                            fcc = type->Name == "PackMapMetadata" ? fcc::mMet
+                                : type->Name == "PackContent" ? fcc::cntc
+                                : fcc;
+
+                        m_layout.Chunks[fcc].try_emplace(versionNum, type);
+                    }
                     else
                         goto fail;
                 }
@@ -98,7 +106,7 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
             progress = offset;
     }
 
-    if (m_layout.Chunks["AFNT"].empty())
+    if (m_layout.Chunks[fcc::AFNT].empty())
     {
         auto const filename = m_layout.Types.try_emplace(new byte(), Type
         {
@@ -133,10 +141,10 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                 { .Name = "Fonts", .UnderlyingType = UnderlyingTypes::DwordArray, .ElementType = &font->second },
             },
         }).first;
-        m_layout.Chunks["AFNT"].try_emplace(0, &fonts->second);
+        m_layout.Chunks[fcc::AFNT].try_emplace(0, &fonts->second);
     }
 
-    if (m_layout.Chunks["FOOT"].empty())
+    if (m_layout.Chunks[fcc::FOOT].empty())
     {
         auto const field = m_layout.Types.try_emplace(new byte(), Type
         {
@@ -160,10 +168,10 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
             { .Name = "Type", .UnderlyingType = UnderlyingTypes::Ptr, .ElementType = &type->second },
             { .Name = "Size", .UnderlyingType = UnderlyingTypes::Dword },
         };
-        m_layout.Chunks["FOOT"].try_emplace(0, &type->second);
+        m_layout.Chunks[fcc::FOOT].try_emplace(0, &type->second);
     }
 
-    if (m_layout.Chunks["STAR"].empty())
+    if (m_layout.Chunks[fcc::STAR].empty())
     {
         auto const star = m_layout.Types.try_emplace(new byte(), Type
         {
@@ -187,7 +195,7 @@ void Manager::Load(std::filesystem::path const& path, Utils::Async::ProgressBarC
                 { .Name = "TextureFile", .UnderlyingType = UnderlyingTypes::FileName },
             },
         }).first;
-        m_layout.Chunks["STAR"].try_emplace(0, &stars->second);
+        m_layout.Chunks[fcc::STAR].try_emplace(0, &stars->second);
     }
 
     m_loaded = true;
@@ -226,8 +234,8 @@ void Manager::LoadEmbeddedLayout(LayoutContainer& container, PackFile const& fil
         return nullptr;
     };
 
-    if (auto const type = addType(*Traversal::QueryFields(file, p, *m_layout.Chunks["FOOT"].begin()->second, "Fields").begin()))
-        container.Chunks[std::string((char const*)&chunk.Header.Magic, strnlen((char const*)&chunk.Header.Magic, 4))].try_emplace(chunk.Header.Version, type);
+    if (auto const type = addType(*Traversal::QueryFields(file, p, *m_layout.Chunks[fcc::FOOT].begin()->second, "Fields").begin()))
+        container.Chunks[chunk.GetDisambiguatedFourCC(file)].try_emplace(chunk.Header.Version, type);
 }
 
 }

@@ -13,7 +13,7 @@ namespace Layout::Traversal
 struct QueryChunk;
 }
 
-#pragma pack(push, 1)
+struct PackFile;
 struct PackFileChunk
 {
     struct ChunkHeader
@@ -44,6 +44,21 @@ struct PackFileChunk
     PackFileChunk() = delete;
     PackFileChunk(PackFileChunk const&) = delete;
     PackFileChunk(PackFileChunk&&) = delete;
+
+    static bool IsAmbiguousFourCC(fcc fcc)
+    {
+        switch (fcc)
+        {
+            case fcc::Main:
+                return true;
+            default:
+                return false;
+        }
+    }
+    fcc GetFourCC() const { return Header.Magic; }
+    fcc GetDisambiguatedFourCC(PackFile const& file) const;
+    std::string_view GetFourCCStringView() const { return { (char const*)&Header.Magic, strnlen((char const*)&Header.Magic, 4) }; }
+    std::string GetFourCCString() const { return std::string { GetFourCCStringView() }; }
 
     PackFileChunk const* GetNextChunk() const { return (PackFileChunk const*)((byte const*)this + offsetof(PackFileChunk::ChunkHeader, NextChunkOffset) + sizeof(Header.NextChunkOffset) + Header.NextChunkOffset); }
     std::span<uint32 const> GetFixupOffsets() const
@@ -84,6 +99,10 @@ struct PackFile
     PackFile(PackFile const&) = delete;
     PackFile(PackFile&&) = delete;
     ~PackFile();
+
+    fcc GetFourCC() const { return Header.ContentType; }
+    std::string_view GetFourCCStringView() const { return { (char const*)&Header.ContentType, strnlen((char const*)&Header.ContentType, 4) }; }
+    std::string GetFourCCString() const { return std::string { GetFourCCStringView() }; }
 
     template<typename T>
     class ChunkIteratorBase
@@ -141,6 +160,11 @@ struct PackFile
         return itr;
     }
 };
-#pragma pack(pop)
+
+fcc PackFileChunk::GetDisambiguatedFourCC(PackFile const& file) const
+{
+    auto const fcc = GetFourCC();
+    return IsAmbiguousFourCC(fcc) ? file.GetFourCC() : fcc;
+}
 
 }

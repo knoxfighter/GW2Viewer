@@ -1,5 +1,6 @@
 export module GW2Viewer.Data.Pack.Manager;
 import GW2Viewer.Common;
+import GW2Viewer.Common.FourCC;
 import GW2Viewer.Data.Pack.PackFile;
 import GW2Viewer.Utils.Async.ProgressBarContext;
 import GW2Viewer.Utils.Container;
@@ -14,16 +15,15 @@ class Manager
 public:
     auto GetChunkVersions(PackFile const& file, PackFileChunk const& chunk)
     {
-        std::string_view const fcc { (char const*)&chunk.Header.Magic, strnlen((char const*)&chunk.Header.Magic, 4) };
         LayoutContainer* container;
         {
             std::scoped_lock _(m_embeddedLayoutsLock);
             container = Utils::Container::Find(m_embeddedLayouts, &file);
         }
         if (container && !container->Chunks.empty())
-            return Utils::Container::Find(container->Chunks, fcc);
+            return Utils::Container::Find(container->Chunks, chunk.GetDisambiguatedFourCC(file));
 
-        return Utils::Container::Find(m_layout.Chunks, fcc);
+        return Utils::Container::Find(m_layout.Chunks, chunk.GetDisambiguatedFourCC(file));
     }
     Layout::Type const* GetChunkType(PackFile const& file, PackFileChunk const& chunk)
     {
@@ -60,7 +60,7 @@ private:
     struct LayoutContainer
     {
         std::unordered_map<byte const*, Layout::Type> Types;
-        std::map<std::string, std::map<uint32, Layout::Type const*>, std::less<>> Chunks;
+        std::unordered_map<fcc, std::unordered_map<uint32, Layout::Type const*>> Chunks;
     };
     LayoutContainer m_layout;
     std::unordered_map<PackFile const*, LayoutContainer> m_embeddedLayouts;
