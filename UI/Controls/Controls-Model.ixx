@@ -124,7 +124,7 @@ struct Model
         ImGuizmo::SetDrawlist();
         ImGuizmo::SetRect(cursor.x, cursor.y, size.x, size.y);
 
-        if (I::IsItemHovered() && !ImGuizmo::IsOver())
+        if (I::IsItemHovered() && !IsMouseOverGizmo())
         {
             if (I::IsMouseDown(ImGuiMouseButton_Middle))
                 Panning = true;
@@ -152,7 +152,7 @@ struct Model
 
         if (options.UI)
         {
-            if (I::IsItemHovered() && !ImGuizmo::IsOver() && Select)
+            if (I::IsItemHovered() && !IsMouseOverGizmo() && Select)
             {
                 if ((HoveredObject = Viewport->HitTest(I::GetIO().MousePos - cursor)))
                 {
@@ -279,6 +279,8 @@ struct Model
     }
 
 private:
+    bool IsMouseOverGizmo() const { return SelectedObject && ImGuizmo::IsOver(); }
+
     void CreateScene()
     {
         Scene = std::make_unique<Data::Model::Scene>(nullptr, "");
