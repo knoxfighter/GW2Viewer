@@ -9,6 +9,7 @@ import GW2Viewer.UI.ImGui;
 import GW2Viewer.Utils.Scan;
 import <boost/container/small_vector.hpp>;
 import <experimental/generator>;
+import <directxtk/SimpleMath.h>;
 
 namespace GW2Viewer::Data::Pack::Layout::Traversal
 {
@@ -175,6 +176,7 @@ public:
         }
     }
     [[nodiscard]] operator ImVec2() const { std::array<float, 2> array = *this; return { array[0], array[1] }; }
+    [[nodiscard]] operator DirectX::SimpleMath::Vector2() const { std::array<float, 2> array = *this; return { array[0], array[1] }; }
     template<typename T> requires std::integral<T> || std::floating_point<T>
     [[nodiscard]] operator std::array<T, 3>() const
     {
@@ -187,6 +189,7 @@ public:
             default: throw std::exception("FieldIterator::operator T()<[3]> called for a field of non-array type");
         }
     }
+    [[nodiscard]] operator DirectX::SimpleMath::Vector3() const { std::array<float, 3> array = *this; return { array[0], array[1], array[2] }; }
     template<typename T> requires std::integral<T> || std::floating_point<T>
     [[nodiscard]] operator std::array<T, 4>() const
     {
@@ -199,6 +202,23 @@ public:
         }
     }
     [[nodiscard]] operator ImVec4() const { std::array<float, 4> array = *this; return { array[0], array[1], array[2], array[3] }; }
+    [[nodiscard]] operator DirectX::SimpleMath::Vector4() const { std::array<float, 4> array = *this; return { array[0], array[1], array[2], array[3] }; }
+    [[nodiscard]] operator DirectX::SimpleMath::Quaternion() const { std::array<float, 4> array = *this; return { array[0], array[1], array[2], array[3] }; }
+    [[nodiscard]] operator DirectX::SimpleMath::Matrix() const
+    {
+        if (auto const& field = GetElementField(); field.UnderlyingType == UnderlyingTypes::InlineArray && field.ArraySize == 4 && field.ElementType->Fields.front().UnderlyingType == UnderlyingTypes::Float4)
+        {
+            DirectX::SimpleMath::Matrix result;
+            auto itr = GetArrayElements().first;
+            for (auto i = 0; i < field.ArraySize; ++i, ++itr)
+            {
+                std::array<float, 4> const values = itr;
+                std::copy_n(values.data(), values.size(), result.m[i]);
+            }
+            return result;
+        }
+        throw std::exception("FieldIterator::operator Matrix() called for a field of non-Matrix type");
+    }
     [[nodiscard]] operator GUID() const
     {
         switch (GetElementField().UnderlyingType)
