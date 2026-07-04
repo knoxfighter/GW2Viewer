@@ -13,6 +13,7 @@ struct Mesh : SceneObject
     void Debug() override;
 
     void LoadMesh(uint32 fvf, uint32 vertexCount, byte const* vertices, uint32 indexCount, byte const* indices, uint32 diffuseFileID, uint32 normalFileID);
+    void SetBones(std::vector<Bone const*>&& bones);
 
     BoundingBox GetBoundingBox() const override;
     bool HitTest(HitTestContext& context) const override;
@@ -26,6 +27,7 @@ private:
     uint32 m_fileDiffuse = 0;
     uint32 m_fileNormal = 0;
     bool m_debugHighlightHovered = false;
+    std::vector<Bone const*> m_bones;
 
     Graphics::Buffer m_vertexBuffer;
     Graphics::Buffer m_indexBuffer;

@@ -43,7 +43,7 @@ bool FileButton(uint32 fileID, Data::Archive::File const* file, FileButtonOption
         {
             Texture(fileID, { .BestVersion = options.TooltipPreviewBestVersion });
 
-            static ModelOptions options { .Grid = false };
+            static ModelOptions options { .Grid = false, .Skeleton = true };
             static std::optional<Model> model;
             static uint32 modelFileID = 0;
             if (modelFileID != fileID)

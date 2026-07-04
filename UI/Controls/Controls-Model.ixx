@@ -1,6 +1,7 @@
 export module GW2Viewer.UI.Controls:Model;
 import GW2Viewer.Common;
 import GW2Viewer.Common.FourCC;
+import GW2Viewer.Common.Time;
 import GW2Viewer.Common.Token64;
 import GW2Viewer.Data.Archive;
 import GW2Viewer.Data.Game;
@@ -10,6 +11,7 @@ import GW2Viewer.Services.Graphics;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.UI.ImGui.ImGuizmo;
 import GW2Viewer.UI.Manager;
+import GW2Viewer.UI.Notifications;
 import GW2Viewer.User.ArchiveIndex;
 import std;
 #include "Macros.h"
@@ -20,12 +22,14 @@ export namespace GW2Viewer::UI::Controls
 struct ModelOptions
 {
     bool Grid = false;
+    bool Skeleton = false;
 };
 struct Model
 {
     ModelOptions Options;
 
     std::unique_ptr<Data::Pack::PackFile> PackFile;
+    std::unique_ptr<Data::Pack::PackFile> PackFileSkeleton;
 
     std::unique_ptr<Data::Model::Scene> Scene;
     std::unique_ptr<Data::Model::Viewport> Viewport;
@@ -63,6 +67,39 @@ struct Model
 
         CreateScene();
 
+        Data::Model::Skeleton* sceneSkeleton = nullptr;
+        if (Options.Skeleton && file.HasChunk(fcc::SKEL))
+        {
+            auto loadSkeleton = [&](Data::Pack::Layout::Traversal::QueryChunk const& chunk)
+            {
+                if (auto const grannyModel = chunk["skeletonData"]["grannyModel"])
+                {
+                    auto const skeleton = grannyModel["Skeleton"];
+                    if (!sceneSkeleton)
+                        sceneSkeleton = &Scene->CreateSkeleton(std::format("{} <c=#8>{}</c>", (std::string_view)grannyModel["Name"], (std::string_view)skeleton["Name"]));
+                    auto const bones = skeleton["Bones"];
+                    for (auto const& bone : bones)
+                    {
+                        Data::Model::Bone* sceneBone = nullptr;
+                        if (int32 const parentIndex = bone["ParentIndex"]; parentIndex >= 0)
+                            if (auto const sceneBoneParent = sceneSkeleton->FindBoneByName(bones[parentIndex]["Name"]))
+                                sceneBone = &sceneBoneParent->CreateBone(bone["Name"]);
+                        if (!sceneBone)
+                            sceneBone = &sceneSkeleton->CreateRootBone(bone["Name"]);
+
+                        auto const localTransform = bone["LocalTransform"];
+                        sceneBone->SetPosition(localTransform["Position"]);
+                        sceneBone->SetRotationQuaternion(localTransform["Orientation"]);
+                        // TODO: localTransform["ScaleShear"]
+                        //sceneBone->SetTransform(bone["InverseWorld4x4"]);
+                    }
+                }
+            };
+            if (uint32 const skeletonFileID = file.QueryChunk(fcc::SKEL)["fileReference"])
+                if (PackFileSkeleton = G::Game.Archive.GetPackFile(skeletonFileID); PackFileSkeleton && PackFileSkeleton->GetFourCC() == fcc::MODL)
+                    loadSkeleton(PackFileSkeleton->QueryChunk(fcc::SKEL));
+            loadSkeleton(file.QueryChunk(fcc::SKEL));
+        }
         for (auto const mesh : file.QueryChunk(fcc::GEOM)["meshes"])
         {
             auto const geometry = mesh["geometry"];
@@ -89,6 +126,16 @@ struct Model
                 fileDiffuse,
                 fileNormal);
             sceneMesh.GetProperties().Visible = !((uint32)mesh["flags"] & 4); // LOD
+
+            if (sceneSkeleton)
+            {
+                std::vector<Data::Model::Bone const*> bones;
+                bones.reserve(mesh["boneBindings[]"].GetArraySize());
+                for (Token64 const token : mesh["boneBindings"])
+                    if (!bones.emplace_back(sceneSkeleton->FindBoneByToken(token)))
+                        G::Notifications.AddTimed(5s, { .Type = Notification::Types::Error, .Text = std::format("Bone with token \"{}\" not found in the skeleton file", token.GetString().data()) });
+                sceneMesh.SetBones(std::move(bones));
+            }
         }
         Viewport->GetCamera()->Focus(*Scene);
         return true;
@@ -190,9 +237,15 @@ struct Model
                 */
 
                 auto transform = SelectedObject->GetTransform();
+                auto const bone = dynamic_cast<Data::Model::Bone*>(SelectedObject);
+                if (bone)
+                    transform = bone->GetWorldSpaceTransform();
                 if (ImGuizmo::Manipulate(*Viewport->GetCamera()->GetView().m, *Viewport->GetCamera()->GetProjection().m, Operation, Mode, *transform.m, snap ? &snap->x : nullptr))
                 {
-                    SelectedObject->SetTransform(transform);
+                    if (bone)
+                        bone->SetWorldSpaceTransform(transform);
+                    else
+                        SelectedObject->SetTransform(transform);
                 }
             }
 

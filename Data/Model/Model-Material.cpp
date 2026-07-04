@@ -36,16 +36,20 @@ cbuffer ObjectConstantBuffer : register(b2)
     float ObjectPadding0;
     float ObjectPadding1;
     float ObjectPadding2;
+
+    matrix BoneTransforms[256];
 };
 
 struct VS_IN
 {
-    float3 Position  : POSITION;
-    float3 Normal    : NORMAL;
-    float3 Tangent   : TANGENT;
-    float3 Bitangent : BITANGENT;
-    float2 UV        : TEXCOORD;
-    float4 Color     : COLOR;
+    float3 Position    : POSITION;
+    float4 BoneWeights : BLENDWEIGHT;
+    uint4  BoneIndices : BLENDINDICES;
+    float3 Normal      : NORMAL;
+    float3 Tangent     : TANGENT;
+    float3 Bitangent   : BITANGENT;
+    float2 UV          : TEXCOORD;
+    float4 Color       : COLOR;
 };
 
 struct PS_IN
@@ -62,15 +66,40 @@ struct PS_IN
 PS_IN VS(VS_IN input)
 {
     PS_IN output;
-    float4 worldPos = mul(float4(input.Position, 1.0f), World);
-    output.WorldPosition = worldPos.xyz;
-    output.Position = mul(worldPos, ViewProj);
+    matrix skinTransform;
+    if (dot(input.BoneWeights, float4(1, 1, 1, 1)) > 0.0001f)
+    {
+        skinTransform =
+            BoneTransforms[input.BoneIndices.x] * input.BoneWeights.x +
+            BoneTransforms[input.BoneIndices.y] * input.BoneWeights.y +
+            BoneTransforms[input.BoneIndices.z] * input.BoneWeights.z +
+            BoneTransforms[input.BoneIndices.w] * input.BoneWeights.w;
+    }
+    else
+    {
+        skinTransform = float4x4(
+            1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1
+        );
+    }
+
+    float3x3 skinTransform3x3 = (float3x3)skinTransform;
+    float4 skinnedPosition  = mul(float4(input.Position, 1.0f), skinTransform);
+    float3 skinnedNormal    = mul(input.Normal   .zyx * 2.0f - 1.0f, skinTransform3x3);
+    float3 skinnedTangent   = mul(input.Tangent  .zyx * 2.0f - 1.0f, skinTransform3x3);
+    float3 skinnedBitangent = mul(input.Bitangent.zyx * 2.0f - 1.0f, skinTransform3x3);
+
+    float4 worldPosition = mul(skinnedPosition, World);
+    output.WorldPosition = worldPosition.xyz;
+    output.Position = mul(worldPosition, ViewProj);
 
     float3x3 world3x3 = (float3x3)World;
     float3 viewDir = normalize(EyePosition - output.WorldPosition);
-    output.Normal = float4(normalize(mul(input.Normal.zyx * 2.0f - 1.0f, (float3x3)WorldInvertedTransposed)), viewDir.z);
-    output.Tangent = float4(normalize(mul(input.Tangent.zyx * 2.0f - 1.0f, world3x3)), viewDir.x);
-    output.Bitangent = float4(-normalize(mul(input.Bitangent.zyx * 2.0f - 1.0f, world3x3)), viewDir.y);
+    output.Normal = float4(normalize(mul(skinnedNormal, (float3x3)WorldInvertedTransposed)), viewDir.z);
+    output.Tangent = float4(normalize(mul(skinnedTangent, world3x3)), viewDir.x);
+    output.Bitangent = float4(-normalize(mul(skinnedBitangent, world3x3)), viewDir.y);
 
     output.UV = input.UV;
     output.Color = input.Color;
@@ -208,6 +237,8 @@ void Material::CreateBasic()
         D3D11_INPUT_ELEMENT_DESC const layout[]
         {
             { "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Position),     D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BLENDWEIGHT",  0, DXGI_FORMAT_R8G8B8A8_UNORM,     0, offsetof(Vertex, BlendWeights), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BLENDINDICES", 0, DXGI_FORMAT_R8G8B8A8_UINT,      0, offsetof(Vertex, BlendIndices), D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "NORMAL",       0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Normal),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "TANGENT",      0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Tangent),      D3D11_INPUT_PER_VERTEX_DATA, 0 },
             { "BITANGENT",    0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Bitangent),    D3D11_INPUT_PER_VERTEX_DATA, 0 },

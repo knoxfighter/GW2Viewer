@@ -130,6 +130,8 @@
     <ClCompile Include="Data\Map\DisplaySet.ixx" />
     <ClCompile Include="Data\Map\MapLayout.ixx" />
     <ClCompile Include="Data\Map\Marker.ixx" />
+    <ClCompile Include="Data\Model\Model-Bone.cpp" />
+    <ClCompile Include="Data\Model\Model-Bone.ixx" />
     <ClCompile Include="Data\Model\Model-Camera.cpp" />
     <ClCompile Include="Data\Model\Model-Camera.ixx" />
     <ClCompile Include="Data\Model\Model-Common.cpp" />
@@ -142,6 +144,8 @@
     <ClCompile Include="Data\Model\Model-Mesh.ixx" />
     <ClCompile Include="Data\Model\Model-Scene.cpp" />
     <ClCompile Include="Data\Model\Model-Scene.ixx" />
+    <ClCompile Include="Data\Model\Model-Skeleton.cpp" />
+    <ClCompile Include="Data\Model\Model-Skeleton.ixx" />
     <ClCompile Include="Data\Model\Model-Viewport.cpp" />
     <ClCompile Include="Data\Model\Model-Viewport.ixx" />
     <ClCompile Include="Data\Model\Model.ixx" />

@@ -3,6 +3,8 @@ module;
 
 export module GW2Viewer.Data.Model:Common;
 import GW2Viewer.Common;
+import GW2Viewer.Common.Token32;
+import GW2Viewer.Common.Token64;
 import GW2Viewer.Services.Graphics;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.Utils.Enum;
@@ -27,12 +29,16 @@ using GW2Viewer::Services::Graphics;
 
 export namespace GW2Viewer::Data::Model
 {
+struct Bone;
 struct Camera;
 struct Grid;
 struct Material;
 struct Mesh;
 struct Scene;
+struct Skeleton;
 struct Viewport;
+
+inline constexpr size_t MAX_BONES = 256;
 
 Quaternion FromRollPitchYaw(float roll, float pitch, float yaw) { return Quaternion::CreateFromAxisAngle(Vector3::UnitX, roll) * Quaternion::CreateFromAxisAngle(-Vector3::UnitY, pitch) * Quaternion::CreateFromAxisAngle(-Vector3::UnitZ, yaw); }
 Quaternion FromRollPitchYaw(Vector3 const& rollPitchYaw) { return FromRollPitchYaw(rollPitchYaw.x, rollPitchYaw.y, rollPitchYaw.z); }
@@ -125,6 +131,8 @@ struct HitTestContext
 struct Vertex
 {
     Vector3 Position;
+    std::array<byte, 4> BlendWeights { };
+    std::array<byte, 4> BlendIndices { };
     Vector3 Normal;
     Vector3 Tangent;
     Vector3 Bitangent;
@@ -140,6 +148,8 @@ struct ObjectConstantBuffer
     float Padding0;
     float Padding1;
     float Padding2;
+
+    Matrix BoneTransforms[MAX_BONES];
 };
 static_assert(!(sizeof(ObjectConstantBuffer) % 16));
 

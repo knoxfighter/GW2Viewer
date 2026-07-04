@@ -4,6 +4,7 @@ import :Grid;
 import :Material;
 import :Mesh;
 import :Scene;
+import :Skeleton;
 import GW2Viewer.Common.Time;
 #include "Macros.h"
 
@@ -89,6 +90,11 @@ void Scene::Debug()
             if (scoped::CollapsingHeader(std::format("Grid {}", object->GetName()).c_str()))
                 object->Debug();
         }
+        else if (dynamic_cast<Skeleton*>(object.get()))
+        {
+            if (scoped::CollapsingHeader(std::format("Skeleton {}", object->GetName()).c_str()))
+                object->Debug();
+        }
         else
         {
             if (std::exchange(first, false))
@@ -96,7 +102,8 @@ void Scene::Debug()
                 if (!I::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen))
                     return;
 
-                I::BeginTable("ObjectsTable", 2, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_ScrollY, { -FLT_MIN, -FLT_MIN });
+                if (!I::BeginTable("ObjectsTable", 2, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_ScrollY, { -FLT_MIN, -FLT_MIN }))
+                    return;
                 I::TableSetupColumn("##Fold", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoReorder | ImGuiTableColumnFlags_NoResize, I::GetFrameHeight());
                 I::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch);
             }
@@ -112,6 +119,7 @@ Camera& Scene::CreateCameraOrbit(std::string_view name) { return Create<OrbitCam
 Grid& Scene::CreateGrid(std::string_view name) { return Create<Grid>(name); }
 Mesh& Scene::CreateMesh(std::string_view name) { return Create<Mesh>(name); }
 Scene& Scene::CreateScene(std::string_view name) { return Create<Scene>(name); }
+Skeleton& Scene::CreateSkeleton(std::string_view name) { return Create<Skeleton>(name); }
 
 BoundingBox Scene::GetBoundingBox() const
 {

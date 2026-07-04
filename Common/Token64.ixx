@@ -49,7 +49,7 @@ public:
 
         for (int i = len - 1; i >= 0; --i)
         {
-            char const c = string[i];
+            char const c = tolower(string[i]);
             token <<= 5;
             token |= c == ' ' ? 0 : c - '`';
         }

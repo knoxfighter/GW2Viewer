@@ -621,7 +621,7 @@ float4 main(PS_INPUT input) : SV_Target
 template<>
 struct PackFileChunkPreview<fcc::MODL> : RegisterPackFileChunkPreview<fcc::MODL>, PackFileChunkPreviewBase
 {
-    UI::Controls::Model Model { { .Grid = true } };
+    UI::Controls::Model Model { { .Grid = true, .Skeleton = true } };
     bool Loaded = false;
 
     void DrawPreview(Data::Pack::Layout::Traversal::QueryChunk const& chunk) override

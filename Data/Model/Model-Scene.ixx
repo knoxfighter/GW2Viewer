@@ -17,6 +17,7 @@ struct Scene : SceneObject
     Grid& CreateGrid(std::string_view name);
     Mesh& CreateMesh(std::string_view name);
     Scene& CreateScene(std::string_view name);
+    Skeleton& CreateSkeleton(std::string_view name);
 
     BoundingBox GetBoundingBox() const override;
     bool HitTest(HitTestContext& context) const override;

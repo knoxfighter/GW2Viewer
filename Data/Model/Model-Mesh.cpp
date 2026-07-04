@@ -59,6 +59,9 @@ void Mesh::Render()
         .World = GetTransform().Transpose(),
         .HighlightObject = GetProperties().Highlighted || m_debugHighlightHovered,
     };
+    for (auto const [index, bone] : m_bones | std::views::enumerate)
+        if (bone)
+            buffer.BoneTransforms[index] = (bone->GetInverseBindPose() * bone->GetHierarchicalTransform()).Transpose();
     m_constantBuffer.Update(buffer);
     context->VSSetConstantBuffers(2, 1, m_constantBuffer.Ptr.GetAddressOf());
     context->PSSetConstantBuffers(2, 1, m_constantBuffer.Ptr.GetAddressOf());
@@ -294,6 +297,10 @@ void Mesh::LoadMesh(uint32 fvf, uint32 vertexCount, byte const* vertices, uint32
             vertex.Position = *(Vector3*)&vertices[m_fvf->Offset.Position];
         else if (m_fvf->Offset.PositionCompressed >= 0)
             vertex.Position = DirectX::PackedVector::XMLoadFloat3PK((DirectX::PackedVector::XMFLOAT3PK*)&vertices[m_fvf->Offset.PositionCompressed]);
+        if (m_fvf->Offset.BlendWeights >= 0)
+            vertex.BlendWeights = *(std::array<byte, 4>*)&vertices[m_fvf->Offset.BlendWeights];
+        if (m_fvf->Offset.BlendIndices >= 0)
+            vertex.BlendIndices = *(std::array<byte, 4>*)&vertices[m_fvf->Offset.BlendIndices];
         if (m_fvf->Offset.Normal >= 0)
             vertex.Normal = *(Vector3*)&vertices[m_fvf->Offset.Normal];
         else if (m_fvf->Offset.NormalCompressed >= 0)
@@ -330,6 +337,11 @@ void Mesh::LoadMesh(uint32 fvf, uint32 vertexCount, byte const* vertices, uint32
     m_vertexBuffer = G::Services::Graphics.CreateVertexBuffer(m_vertices);
     m_indexBuffer = G::Services::Graphics.CreateIndexBuffer(m_indices);
     m_constantBuffer = G::Services::Graphics.CreateConstantBuffer(ObjectConstantBuffer { });
+}
+
+void Mesh::SetBones(std::vector<Bone const*>&& bones)
+{
+    m_bones = std::move(bones);
 }
 
 BoundingBox Mesh::GetBoundingBox() const
