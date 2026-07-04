@@ -73,7 +73,7 @@ enum class RealTypes : uint16
 {
     Underlying,
     Unk1,
-    Flags,
+    Unsigned,
     Token,
     Unk4, // ModelMaterialData.sortLayer
 };

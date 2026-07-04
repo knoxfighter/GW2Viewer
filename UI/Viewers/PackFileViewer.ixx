@@ -329,7 +329,10 @@ void DrawPackFileFieldValue(byte const*& p, bool x64, Data::Pack::Layout::Field 
             }
             else
             {
-                I::Text("<c=#4>dword</c> %d", *(int32 const*)p);
+                if (field.RealType == Data::Pack::Layout::RealTypes::Unsigned)
+                    I::Text("<c=#4>udword</c> %u", *(uint32 const*)p);
+                else
+                    I::Text("<c=#4>dword</c> %d", *(int32 const*)p);
                 if (auto token = ((Token32 const*)p)->GetString(); token[0])
                 {
                     I::SameLine(0, 0);
@@ -368,7 +371,10 @@ void DrawPackFileFieldValue(byte const*& p, bool x64, Data::Pack::Layout::Field 
             }
             else
             {
-                I::TextUnformatted(std::format("<c=#4>qword</c> {}", *(int64 const*)p).c_str());
+                if (field.RealType == Data::Pack::Layout::RealTypes::Unsigned)
+                    I::TextUnformatted(std::format("<c=#4>uqword</c> {}", *(uint64 const*)p).c_str());
+                else
+                    I::TextUnformatted(std::format("<c=#4>qword</c> {}", *(int64 const*)p).c_str());
                 I::SameLine(0, 0);
                 auto token = ((Token64 const*)p)->GetString();
                 I::Text("<c=#4> or token64</c> %s", token.data());
