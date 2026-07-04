@@ -5,6 +5,47 @@ import :Material;
 namespace GW2Viewer::Data::Model
 {
 
+// AI-generated, and I don't understand any of this
+Vector3 ToRollPitchYaw(Quaternion const& quaternion)
+{
+    Vector3 euler;
+
+    // 1. Calculate the Pitch (elevation)
+    // In our specific matrix derivation, the m13 element maps exactly to sin(pitch)
+    auto sinp = 2.0f * (quaternion.x * quaternion.z - quaternion.w * quaternion.y);
+
+    // Clamp to prevent NaN if floating point rounding slightly exceeds [-1.0, 1.0]
+    sinp = std::clamp(sinp, -1.0f, 1.0f);
+    euler.y = std::asin(sinp); // euler.y is Pitch
+
+    // 2. Check for Gimbal Lock (Pitch is exactly +90 or -90 degrees)
+    if (std::abs(sinp) >= 0.9999f)
+    {
+        // Gimbal lock occurred. Set Roll to zero and calculate Yaw.
+        euler.x = 0.0f; // Roll
+
+        // When pitch is +/-90, m21 and m22 still contain the relationship for Yaw
+        euler.z = std::atan2(2.0f * (quaternion.x * quaternion.y - quaternion.w * quaternion.z), 1.0f - 2.0f * (quaternion.x * quaternion.x + quaternion.z * quaternion.z));
+    }
+    else
+    {
+        // 3. Normal extraction for Roll and Yaw
+
+        // Roll (X-axis)
+        auto const sinr_cosp = 2.0f * (quaternion.y * quaternion.z + quaternion.w * quaternion.x);
+        auto const cosr_cosp = 1.0f - 2.0f * (quaternion.x * quaternion.x + quaternion.y * quaternion.y);
+        euler.x = std::atan2(sinr_cosp, cosr_cosp);
+
+        // Yaw (Z-axis) - Note the negative sign on the sine term due to -Vector3::UnitZ
+        auto const siny_cosp = -2.0f * (quaternion.x * quaternion.y + quaternion.w * quaternion.z);
+        auto const cosy_cosp = 1.0f - 2.0f * (quaternion.y * quaternion.y + quaternion.z * quaternion.z);
+        euler.z = std::atan2(siny_cosp, cosy_cosp);
+    }
+
+    // Returns: X = Roll, Y = Pitch, Z = Yaw
+    return euler;
+}
+
 void SceneObject::Debug()
 {
     if (auto value = GetPosition(); I::DragFloat3("Position", &value.x)) SetPosition(value);

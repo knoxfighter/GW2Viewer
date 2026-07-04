@@ -36,6 +36,7 @@ struct Viewport;
 
 Quaternion FromRollPitchYaw(float roll, float pitch, float yaw) { return Quaternion::CreateFromAxisAngle(Vector3::UnitX, roll) * Quaternion::CreateFromAxisAngle(-Vector3::UnitY, pitch) * Quaternion::CreateFromAxisAngle(-Vector3::UnitZ, yaw); }
 Quaternion FromRollPitchYaw(Vector3 const& rollPitchYaw) { return FromRollPitchYaw(rollPitchYaw.x, rollPitchYaw.y, rollPitchYaw.z); }
+Vector3 ToRollPitchYaw(Quaternion const& quaternion);
 
 struct HitTestContext;
 struct SceneObject
@@ -70,9 +71,9 @@ struct SceneObject
     void SetScale(float x, float y, float z) { SetScale({ x, y, z }); }
     void SetScale(float scale) { SetScale(scale, scale, scale); }
     Quaternion GetRotationQuaternion() const { return FromRollPitchYaw(m_rotation); }
-    void SetRotationQuaternion(Quaternion const& rotation) { m_rotation = rotation.ToEuler(); UpdateTransform(); }
+    void SetRotationQuaternion(Quaternion const& rotation) { m_rotation = ToRollPitchYaw(rotation); UpdateTransform(); }
     Matrix const& GetTransform() const { return m_transform; }
-    void SetTransform(Matrix const& transform) { m_transform = transform; Quaternion rotation; m_transform.Decompose(m_scale, rotation, m_position); m_rotation = rotation.ToEuler(); }
+    void SetTransform(Matrix const& transform) { m_transform = transform; Quaternion rotation; m_transform.Decompose(m_scale, rotation, m_position); m_rotation = ToRollPitchYaw(rotation); }
 
     virtual BoundingBox GetBoundingBox() const { return { }; }
     virtual bool HitTest(HitTestContext& context) const { return false; }
