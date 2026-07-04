@@ -6,9 +6,11 @@ import std;
 export namespace GW2Viewer::Data::Pack
 {
 template<typename PointerType> using GenericPtr = PtrBase<byte, PointerType>;
+template<typename SizeType, typename PointerType> using GenericInlineArray = byte;
 template<typename SizeType, typename PointerType> using GenericArray = ArrayBase<byte, SizeType, PointerType>;
 template<typename SizeType, typename PointerType> using GenericPtrArray = ArrayBase<GenericPtr<PointerType>, SizeType, PointerType>;
 template<typename SizeType, typename PointerType> using GenericTypedArray = TypedArrayBase<SizeType, PointerType>;
+template<typename PointerType> using GenericDwordInlineArray = GenericInlineArray<uint32, PointerType>;
 template<typename PointerType> using GenericDwordArray = GenericArray<uint32, PointerType>;
 template<typename PointerType> using GenericWordArray = GenericArray<uint16, PointerType>;
 template<typename PointerType> using GenericByteArray = GenericArray<byte, PointerType>;

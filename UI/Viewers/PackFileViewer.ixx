@@ -35,6 +35,62 @@ std::unordered_map<FoldKey, bool, decltype([](FoldKey const& key)
     boost::hash_combine(hash, key.Depth);
     return hash;
 })> g_folded;
+float GetFoldButtonWidth()
+{
+    static float cachedResult = 0;
+    if (static float cachedFontSize = 0; cachedFontSize != I::GetFontSize())
+    {
+        cachedFontSize = I::GetFontSize();
+        cachedResult = I::CalcTextSize(ICON_FA_CHEVRON_DOWN).x + I::GetStyle().FramePadding.x * 2;
+    }
+    return cachedResult;
+}
+bool Folded(void const* p, uint32 depth, bool foldByDefault = false)
+{
+    auto [itr, added] = g_folded.try_emplace({ (byte const*)p, depth });
+    auto& folded = itr->second;
+    if (added && foldByDefault)
+        folded = true;
+
+    if (auto const pos = I::GetCurrentWindow()->DC.CursorPosPrevLine; I::IsClippedEx({ pos, pos + ImVec2(GetFoldButtonWidth(), I::GetFrameHeight()) }, 0))
+        return folded;
+
+    I::SameLine();
+    if (scoped::WithCursorPos(I::GetCurrentWindow()->DC.Indent.x - GetFoldButtonWidth(), I::GetCursorPosY()))
+        if (I::Button(std::format("{}##Fold-{}-{}", folded ? ICON_FA_CHEVRON_RIGHT : ICON_FA_CHEVRON_DOWN, (uintptr_t)p, depth).c_str()))
+            folded ^= true;
+    if (folded)
+        I::Text("<c=#0F04> { ... } </c>");
+    else
+        I::NewLine();
+
+    return folded;
+}
+bool IsFoldable(Data::Pack::Layout::Field const& field)
+{
+    switch (field.UnderlyingType)
+    {
+        using enum Data::Pack::Layout::UnderlyingTypes;
+        case InlineArray:
+        case DwordArray:
+        case DwordPtrArray:
+        case DwordTypedArray:
+        case Ptr:
+        case InlineStruct:
+        case Variant:
+        case InlineStruct2:
+        case WordArray:
+        case WordPtrArray:
+        case WordTypedArray:
+        case ByteArray:
+        case BytePtrArray:
+        case ByteTypedArray:
+            return true;
+        default:
+            return false;
+    }
+}
+bool IsFoldable(Data::Pack::Layout::Type const& type) { return std::ranges::any_of(type.Fields, (bool(&)(Data::Pack::Layout::Field const&))IsFoldable); }
 
 template<template<typename PointerType> typename PackFileType, typename PointerType> struct DrawPackFileField { };
 template<template<typename SizeType, typename PointerType> typename PackFileType, typename SizeType, typename PointerType> struct DrawPackFileFieldArray { };
@@ -53,7 +109,7 @@ template<typename PointerType> struct DrawPackFileField<Data::Pack::GenericPtr, 
     void operator()(Data::Pack::GenericPtr<PointerType> const*& p, Data::Pack::Layout::Field const& field, uint32 depth)
     {
         byte const* ep = p->get();
-        ++p;
+        auto oldP = p++;
 
         I::SameLine();
         I::Text("<c=#4>%s*</c>", field.ElementType->Name.c_str());
@@ -63,89 +119,72 @@ template<typename PointerType> struct DrawPackFileField<Data::Pack::GenericPtr, 
             I::TextUnformatted("<c=#CCF><nullptr></c>");
             return;
         }
+        if (Folded(oldP, depth))
+            return;
         I::Dummy({ 25, 0 });
         I::SameLine();
         if (scoped::Group())
             DrawPackFileType(ep, std::is_same_v<PointerType, int64>, field.ElementType, depth + 1, &field);
     }
 };
-template<typename SizeType, typename PointerType> struct DrawPackFileFieldArray<Data::Pack::GenericArray, SizeType, PointerType>
+template<typename PointerType>
+struct DrawPackFileFieldArrayBase
+{
+    template<typename ElementFunc>
+    bool Draw(void const* p, Data::Pack::Layout::Field const& field, uint32 depth, uint32 size, char const* format, bool forceFoldableContents, bool foldByDefault, ElementFunc const& elementFunc)
+    {
+        I::SameLine();
+        I::Text(format, field.ElementType->Name.c_str(), size);
+        if (size && Folded(p, depth, foldByDefault))
+            return false;
+        I::Dummy({ 25, 0 });
+        I::SameLine();
+        auto const elementsHaveFoldableFields = forceFoldableContents || IsFoldable(*field.ElementType);
+        if (scoped::Group())
+        for (uint32 i = 0; i < size; ++i)
+        {
+            I::Text("[%u] ", i);
+            I::SameLine();
+            if (elementsHaveFoldableFields)
+            {
+                I::Dummy({ GetFoldButtonWidth(), 0 });
+                I::SameLine();
+            }
+            if (scoped::Group())
+                elementFunc();
+        }
+        return true;
+    }
+};
+template<typename SizeType, typename PointerType> struct DrawPackFileFieldArray<Data::Pack::GenericInlineArray, SizeType, PointerType> : DrawPackFileFieldArrayBase<PointerType>
+{
+    void operator()(Data::Pack::GenericInlineArray<SizeType, PointerType> const*& p, Data::Pack::Layout::Field const& field, uint32 depth)
+    {
+        if (!this->Draw(p, field, depth, field.ArraySize, "<c=#4>%s[%u]</c>", false, false, [&p, &field, depth] { DrawPackFileType(p, std::is_same_v<PointerType, int64>, field.ElementType, depth + 1, &field); }))
+            p += field.ElementType->Size(std::is_same_v<PointerType, int64>) * field.ArraySize;
+    }
+};
+template<typename PointerType> struct DrawPackFileField<Data::Pack::GenericDwordInlineArray, PointerType> : DrawPackFileFieldArray<Data::Pack::GenericInlineArray, uint32, PointerType> { };
+template<typename SizeType, typename PointerType> struct DrawPackFileFieldArray<Data::Pack::GenericArray, SizeType, PointerType> : DrawPackFileFieldArrayBase<PointerType>
 {
     void operator()(Data::Pack::GenericArray<SizeType, PointerType> const*& p, Data::Pack::Layout::Field const& field, uint32 depth)
     {
         byte const* ep = p->data();
         uint32 const size = p->size();
-        ++p;
-
-        I::SameLine();
-        I::Text("<c=#4>%s[%u]</c>", field.ElementType->Name.c_str(), size);
-        if (size)
-        {
-            bool& folded = g_folded[{ (byte const*)p, depth }];
-            I::SameLine();
-            if (I::Button(std::format("{}-{}-{}", folded ? ICON_FA_CHEVRON_RIGHT "##Fold" : ICON_FA_CHEVRON_DOWN "##Fold", (uintptr_t)p, depth).c_str()))
-                folded ^= true;
-            if (folded)
-            {
-                I::SameLine();
-                I::Text("<c=#0F04> { ... } </c>");
-                return;
-            }
-        }
-        if (size > 10 && (field.ElementType->Name == "byte" || field.ElementType->Name == "word" || field.ElementType->Name == "float" || field.ElementType->Name == "float3"))
-        {
-            I::SameLine();
-            I::Text("<c=#0F0><omitted></c>");
-            return;
-        }
-        I::Dummy({ 25, 0 });
-        I::SameLine();
-        if (scoped::Group())
-        for (uint32 i = 0; i < size; ++i)
-        {
-            I::Text("[%u] ", i);
-            I::SameLine();
-            if (scoped::Group())
-                DrawPackFileType(ep, std::is_same_v<PointerType, int64>, field.ElementType, depth + 1, &field);
-        }
+        auto const foldByDefault = size > 10 && (field.ElementType->Name == "byte" || field.ElementType->Name == "word" || field.ElementType->Name == "float" || field.ElementType->Name == "float3");
+        this->Draw(p++, field, depth, size, "<c=#4>%s[%u]</c>", false, foldByDefault, [&ep, &field, depth] { DrawPackFileType(ep, std::is_same_v<PointerType, int64>, field.ElementType, depth + 1, &field); });
     }
 };
 template<typename PointerType> struct DrawPackFileField<Data::Pack::GenericDwordArray, PointerType> : DrawPackFileFieldArray<Data::Pack::GenericArray, uint32, PointerType> { };
 template<typename PointerType> struct DrawPackFileField<Data::Pack::GenericWordArray, PointerType> : DrawPackFileFieldArray<Data::Pack::GenericArray, uint16, PointerType> { };
 template<typename PointerType> struct DrawPackFileField<Data::Pack::GenericByteArray, PointerType> : DrawPackFileFieldArray<Data::Pack::GenericArray, byte, PointerType> { };
-template<typename SizeType, typename PointerType> struct DrawPackFileFieldArray<Data::Pack::GenericPtrArray, SizeType, PointerType>
+template<typename SizeType, typename PointerType> struct DrawPackFileFieldArray<Data::Pack::GenericPtrArray, SizeType, PointerType> : DrawPackFileFieldArrayBase<PointerType>
 {
     void operator()(Data::Pack::GenericPtrArray<SizeType, PointerType> const*& p, Data::Pack::Layout::Field const& field, uint32 depth)
     {
         Data::Pack::GenericPtr<PointerType> const* ep = p->data();
         uint32 const size = p->size();
-        ++p;
-
-        I::SameLine();
-        I::Text("<c=#4>%s*[%u]</c>", field.ElementType->Name.c_str(), size);
-        if (size)
-        {
-            bool& folded = g_folded[{ (byte const*)p, depth }];
-            I::SameLine();
-            if (I::Button(std::format("{}-{}-{}", folded ? ICON_FA_CHEVRON_RIGHT "##Fold" : ICON_FA_CHEVRON_DOWN "##Fold", (uintptr_t)p, depth).c_str()))
-                folded ^= true;
-            if (folded)
-            {
-                I::SameLine();
-                I::Text("<c=#0F04> { ... } </c>");
-                return;
-            }
-        }
-        I::Dummy({ 25, 0 });
-        I::SameLine();
-        if (scoped::Group())
-        for (uint32 i = 0; i < size; ++i)
-        {
-            I::Text("[%u] ", i);
-            I::SameLine();
-            if (scoped::Group())
-                DrawPackFileField<Data::Pack::GenericPtr, PointerType> { }(ep, field, depth + 1);
-        }
+        this->Draw(p++, field, depth, size, "<c=#4>%s*[%u]</c>", true, false, [&ep, &field, depth] { DrawPackFileField<Data::Pack::GenericPtr, PointerType> { }(ep, field, depth + 1); });
     }
 };
 template<typename PointerType> struct DrawPackFileField<Data::Pack::GenericDwordPtrArray, PointerType> : DrawPackFileFieldArray<Data::Pack::GenericPtrArray, uint32, PointerType> { };
@@ -384,36 +423,7 @@ void DrawPackFileFieldValue(byte const*& p, bool x64, Data::Pack::Layout::Field 
             I::SameLine(0, 0);
             I::Text("%f)", *((double const*&)p)++);
             break;
-        case InlineArray:
-        {
-            I::SameLine();
-            I::Text("<c=#4>%s[%u]</c>", field.ElementType->Name.c_str(), field.ArraySize);
-            if (field.ArraySize)
-            {
-                bool& folded = g_folded[{ p, depth }];
-                I::SameLine();
-                if (I::Button(std::format("{}-{}-{}", folded ? ICON_FA_CHEVRON_RIGHT "##Fold" : ICON_FA_CHEVRON_DOWN "##Fold", (uintptr_t)p, depth).c_str()))
-                    folded ^= true;
-                if (folded)
-                {
-                    I::SameLine();
-                    I::Text("<c=#0F04> { ... } </c>");
-                    p += field.ElementType->Size(x64) * field.ArraySize;
-                    return;
-                }
-            }
-            I::Dummy({ 25, 0 });
-            I::SameLine();
-            if (scoped::Group())
-            for (uint32 i = 0; i < field.ArraySize; ++i)
-            {
-                I::Text("[%u] ", i);
-                I::SameLine();
-                if (scoped::Group())
-                    DrawPackFileType(p, x64, field.ElementType, depth + 1, &field);
-            }
-            break;
-        }
+        case InlineArray: DrawPackFileFieldByArch<Data::Pack::GenericDwordInlineArray>(p, field, depth, x64); break;
         case DwordArray: DrawPackFileFieldByArch<Data::Pack::GenericDwordArray>(p, field, depth, x64); break;
         case WordArray: DrawPackFileFieldByArch<Data::Pack::GenericWordArray>(p, field, depth, x64); break;
         case ByteArray: DrawPackFileFieldByArch<Data::Pack::GenericByteArray>(p, field, depth, x64); break;
@@ -735,8 +745,9 @@ struct PackFileViewer : FileViewer
                 }
 
                 I::TabItemSpacing("##ButtonSpacing", 0, 10);
-                if (I::TabItemButton("Fold All") || (AutoFold == AutoFoldState::NeedsFolding && (AutoFold = AutoFoldState::Folded, true)))
-                    for (auto& folded : g_folded | std::views::values)
+                auto const autoFolding = AutoFold == AutoFoldState::NeedsFolding;
+                if (I::TabItemButton("Fold All") || (autoFolding && (AutoFold = AutoFoldState::Folded, true)))
+                    for (auto& folded : g_folded | std::views::filter([foldChunk = !autoFolding](auto const& pair) { return pair.first.Depth || foldChunk; }) | std::views::values)
                         folded = true;
                 if (I::TabItemButton("Unfold All"))
                     for (auto& folded : g_folded | std::views::values)
@@ -751,15 +762,23 @@ struct PackFileViewer : FileViewer
         }
 
         auto const start = Time::Now();
+        if (scoped::WithStyleVarY(ImGuiStyleVar_FramePadding, 0))
         for (auto const& chunk : *PackFile)
         {
             std::string fcc { (char const*)&chunk.Header.Magic, 4 };
             fcc.resize(strlen(fcc.c_str()));
+            scoped::WithID(fcc.c_str());
             auto const* p = chunk.Data;
-            I::TextUnformatted(std::format("Chunk <{}>", fcc).c_str());
-            I::Dummy({ 25, 0 });
+            I::Dummy({ GetFoldButtonWidth(), 0 });
             I::SameLine();
-            if (scoped::WithStyleVarY(ImGuiStyleVar_FramePadding, 0))
+            if (scoped::Group())
+            {
+                I::TextUnformatted(std::format("Chunk <{}>", fcc.c_str()).c_str());
+                if (Folded(p, 0))
+                    continue;
+            }
+            I::Dummy({ GetFoldButtonWidth() + 25, 0 });
+            I::SameLine();
             if (scoped::Group())
                 if (auto const chunkVersions = G::Game.Pack.GetChunk(fcc))
                     if (auto const itrChunkVersion = chunkVersions->find(chunk.Header.Version); itrChunkVersion != chunkVersions->end())
