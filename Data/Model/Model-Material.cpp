@@ -174,29 +174,43 @@ void Material::Debug()
 
 void Material::CreateBasic()
 {
-    ComPtr<ID3DBlob> vsBlob, psBlob, errorBlob;
-    D3DCompile(shaderBasic.data(), shaderBasic.size(), nullptr, nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
-    D3DCompile(shaderBasic.data(), shaderBasic.size(), nullptr, nullptr, nullptr, "PS", "ps_5_0", 0, 0, &psBlob, &errorBlob);
-    if (errorBlob.Get())
+    struct ShaderCache
     {
-        MessageBoxA(nullptr, (char const*)errorBlob->GetBufferPointer(), "Shader Compilation Error", 0);
-        return;
-    }
-
-    auto device = G::Services::Graphics.Device;
-    device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &m_vertexShader);
-    device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &m_pixelShader);
-
-    D3D11_INPUT_ELEMENT_DESC const layout[]
-    {
-        { "POSITION",  0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Position),  D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "NORMAL",    0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Normal),    D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TANGENT",   0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Tangent),   D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "BITANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Bitangent), D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD",  0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(Vertex, UV),        D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "COLOR",     0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Vertex, Color),     D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        ComPtr<ID3D11VertexShader> VertexShader;
+        ComPtr<ID3D11PixelShader> PixelShader;
+        ComPtr<ID3D11InputLayout> InputLayout;
     };
-    device->CreateInputLayout(layout, std::size(layout), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &m_inputLayout);
+    static std::unordered_map<std::string, ShaderCache> cache;
+
+    auto const device = G::Services::Graphics.Device;
+    auto&& [cached, added] = cache.try_emplace(shaderBasic);
+    if (added)
+    {
+        ComPtr<ID3DBlob> vsBlob, psBlob, errorBlob;
+        D3DCompile(shaderBasic.data(), shaderBasic.size(), nullptr, nullptr, nullptr, "VS", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+        D3DCompile(shaderBasic.data(), shaderBasic.size(), nullptr, nullptr, nullptr, "PS", "ps_5_0", 0, 0, &psBlob, &errorBlob);
+        if (errorBlob.Get())
+        {
+            MessageBoxA(nullptr, (char const*)errorBlob->GetBufferPointer(), "Shader Compilation Error", 0);
+            return;
+        }
+        device->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &cached->second.VertexShader);
+        device->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &cached->second.PixelShader);
+
+        D3D11_INPUT_ELEMENT_DESC const layout[]
+        {
+            { "POSITION",     0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Position),     D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "NORMAL",       0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Normal),       D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TANGENT",      0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Tangent),      D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "BITANGENT",    0, DXGI_FORMAT_R32G32B32_FLOAT,    0, offsetof(Vertex, Bitangent),    D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "TEXCOORD",     0, DXGI_FORMAT_R32G32_FLOAT,       0, offsetof(Vertex, UV),           D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            { "COLOR",        0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(Vertex, Color),        D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        };
+        device->CreateInputLayout(layout, std::size(layout), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &cached->second.InputLayout);
+    }
+    m_vertexShader = cached->second.VertexShader;
+    m_pixelShader = cached->second.PixelShader;
+    m_inputLayout = cached->second.InputLayout;
 
     D3D11_BLEND_DESC const blendDesc
     {
