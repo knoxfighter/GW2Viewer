@@ -147,6 +147,11 @@ struct Model
     {
         ImVec2 Size = I::GetContentRegionAvail();
         bool UI = false;
+        std::function<void()> BarLeftPrependCallback = [] { };
+        std::function<void()> BarLeftAppendCallback = [] { };
+        std::function<void()> BarCenterCallback = [] { };
+        std::function<void()> BarRightPrependCallback = [] { };
+        std::function<void()> BarRightAppendCallback = [] { };
     };
     void Draw(DrawOptions const& options = { })
     {
@@ -261,6 +266,7 @@ struct Model
                 if (scoped::TableDockLeftRight("##Panel"))
                 {
                     I::TableNextColumn();
+                    options.BarLeftPrependCallback();
                     scenePanel = I::CollapsingHeader("Scene", ImGuiTreeNodeFlags_SpanLabelWidth);
                     I::Spacing();
 
@@ -303,13 +309,17 @@ struct Model
                         }
                     }
                     */
+                    options.BarLeftAppendCallback();
 
                     I::TableNextColumn();
+                    options.BarCenterCallback();
 
                     I::TableNextColumn();
+                    options.BarRightPrependCallback();
                     if (scoped::Font(G::UI.Fonts.DefaultLucide))
                         if (I::Button(ICON_LC_FOCUS " Focus"))
                             Viewport->GetCamera()->Focus(SelectedObject ? *SelectedObject : *Scene, true);
+                    options.BarRightAppendCallback();
                 }
             }
 

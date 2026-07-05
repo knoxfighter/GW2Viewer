@@ -53,7 +53,6 @@ struct MapLayoutViewer : ViewerWithHistory<MapLayoutViewer, Data::Map::DisplaySe
     TargetType GetCurrent() const override { return DisplaySet; }
     bool IsCurrent(TargetType target) const override { return false; }
 
-    std::string Title() override { return ViewerInfo.Title; }
     void Draw() override
     {
         MapLayout.Draw([this]

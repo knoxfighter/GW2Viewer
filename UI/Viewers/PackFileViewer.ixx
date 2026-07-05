@@ -11,12 +11,14 @@ import GW2Viewer.Data.Model;
 import GW2Viewer.UI.Controls;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.UI.Viewers.FileViewer;
+import GW2Viewer.UI.Windows.Settings;
+import GW2Viewer.User.Config;
 import GW2Viewer.Utils.Encoding;
 import std;
 import <boost/container_hash/hash.hpp>;
 #include "Macros.h"
 
-namespace GW2Viewer
+namespace GW2Viewer::UI
 {
 
 std::string* g_writeTokensTargets;
@@ -213,7 +215,7 @@ template<typename PointerType> struct DrawPackFileField<Data::Pack::FileNameBase
         ++p;
 
         I::SameLine();
-        UI::Controls::FileButton(fileID);
+        Controls::FileButton(fileID);
     }
 };
 template<typename PointerType> struct DrawPackFileField<Data::Pack::String, PointerType>
@@ -608,7 +610,7 @@ float4 main(PS_INPUT input) : SV_Target
             ImVec2 drawPos = cursor - *ViewportOffset + pagePos;
             if ((layerIndex == selectedLayer || selectedLayer < 0) && viewportScreenRect.Overlaps({ drawPos, drawPos + layer.StrippedDims }))
                 if (scoped::WithCursorScreenPos(drawPos))
-                    UI::Controls::Texture(pageData["filename"], { .Size = layer.StrippedDims, .FullPreviewOnHover = false, .AdvanceCursor = false });
+                    Controls::Texture(pageData["filename"], { .Size = layer.StrippedDims, .FullPreviewOnHover = false, .AdvanceCursor = false });
         }
 
         I::GetWindowDrawList()->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
@@ -621,7 +623,21 @@ float4 main(PS_INPUT input) : SV_Target
 template<>
 struct PackFileChunkPreview<fcc::MODL> : RegisterPackFileChunkPreview<fcc::MODL>, PackFileChunkPreviewBase
 {
-    UI::Controls::Model Model { { .Grid = true, .Skeleton = true } };
+    inline static auto& Config = G::Config.UI.Viewers.PackFileViewer.Model;
+    inline static auto& SettingsSection = G::Windows::Settings.AddSection({
+        .Name = "PackFileViewer: Model",
+        .Category = Windows::Settings::Category::Viewers,
+        .Draw = []
+        {
+            I::Checkbox("Show Grid by Default", &Config.Grid);
+            I::Checkbox("Show Skeleton by Default", &Config.Skeleton);
+        }
+    });
+
+    Controls::Model Model { {
+        .Grid = Config.Grid,
+        .Skeleton = Config.Skeleton,
+    } };
     bool Loaded = false;
 
     void DrawPreview(Data::Pack::Layout::Traversal::QueryChunk const& chunk) override
@@ -631,7 +647,10 @@ struct PackFileChunkPreview<fcc::MODL> : RegisterPackFileChunkPreview<fcc::MODL>
             Loaded = true;
             Model.Load(chunk.File);
         }
-        Model.Draw({ .UI = true });
+        Model.Draw({
+            .UI = true,
+            .BarRightAppendCallback = [] { SettingsSection.DrawPopupButton(); },
+        });
     }
 };
 
@@ -640,14 +659,13 @@ template<fcc FourCC> bool RegisterPackFileChunkPreview<FourCC>::Register()
     return [] { return GetPackFileChunkPreviewRegistry().emplace(FourCC, []<typename... Args>(Args&&... args) { return new PackFileChunkPreview<FourCC>(std::forward<Args>(args)...); }).second; }();
 }
 
-}
-
-export namespace GW2Viewer::UI::Viewers
+export namespace Viewers
 {
 
 struct PackFileViewer : FileViewer
 {
     using FileViewer::FileViewer;
+    inline static auto& Config = G::Config.UI.Viewers.PackFileViewer;
 
     std::unique_ptr<Data::Pack::PackFile> PackFile;
     std::vector<std::unique_ptr<PackFileChunkPreviewBase>> ChunkPreview;
@@ -807,5 +825,7 @@ struct PackFileViewer : FileViewer
         }
     }
 };
+
+}
 
 }

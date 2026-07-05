@@ -14,6 +14,7 @@ import GW2Viewer.UI.Viewers.ViewerRegistry;
 import GW2Viewer.UI.Windows.ContentSearch;
 import GW2Viewer.UI.Windows.ContentExport;
 import GW2Viewer.UI.Windows.Demangle;
+import GW2Viewer.UI.Windows.Settings;
 import GW2Viewer.User.Config;
 import GW2Viewer.Utils.Async;
 import GW2Viewer.Utils.Encoding;
@@ -291,6 +292,43 @@ struct ContentListViewer : ListViewer<ContentListViewer, { ICON_FA_FOLDER_TREE "
     void LocateObject(Data::Content::ContentObject const& object) { Locate(&object); }
     void LocateNamespace(Data::Content::ContentNamespace const& ns) { Locate(&ns); }
 
+    inline static auto& SettingsSection = G::Windows::Settings.AddSection({
+        .Name = "ContentListViewer",
+        .Category = Windows::Settings::Category::Viewers,
+        .Draw = []
+        {
+            I::Checkbox("Auto-expand namespaces if ", &Config.AutoExpandSearchResults);
+            I::SameLine(0, 0);
+            I::SetNextItemWidth(30);
+            if (scoped::Disabled(!Config.AutoExpandSearchResults))
+                I::DragInt("##AutoExpandMaxResults", (int*)&Config.AutoExpandSearchMaxResults, 0.1f, 1, 10000000);
+            if (I::IsItemHovered())
+                I::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            I::SameLine(0, 0);
+            I::TextUnformatted(" results or fewer");
+
+            I::Checkbox("Auto-open singular search result ", &Config.AutoOpenSearchResult);
+            I::SameLine(0, 0);
+            if (scoped::Disabled(!Config.AutoOpenSearchResult))
+                I::Checkbox("in background tab", &Config.AutoOpenSearchResultInBackgroundTab);
+
+            I::Separator();
+
+            I::Checkbox("Horizontal scrolling", &Config.HorizontalScroll);
+            if (scoped::Disabled(!Config.HorizontalScroll))
+            {
+                I::Checkbox("Auto-scroll right to hide tree indents", &Config.HorizontalScrollAutoIndent);
+                I::Checkbox("Auto-scroll left when nothing is out of bounds", &Config.HorizontalScrollAutoContent);
+            }
+
+            I::Separator();
+
+            I::Checkbox("Draw tree lines", &Config.DrawTreeLines);
+            I::Checkbox("Draw separators between patches", &Config.DrawSeparatorsBetweenReleases);
+            I::SetItemTooltip("Speculative, determined by DataID and GUID desynchronizing their ordering.\nReleases before 2015 don't follow this rule.\nOnly works when sorting by DataID.");
+        }
+    });
+
     void Draw() override
     {
         ProcessContext context { *this };
@@ -315,42 +353,7 @@ struct ContentListViewer : ListViewer<ContentListViewer, { ICON_FA_FOLDER_TREE "
             }
 
             I::TableNextColumn();
-            if (I::Button(ICON_FA_GEAR))
-                I::OpenPopup("ViewerConfig");
-
-            I::SetNextWindowPos(I::LastRect().GetBR(), ImGuiCond_Always, { 1, 0 });
-            if (scoped::Popup("ViewerConfig"))
-            {
-                I::Checkbox("Auto-expand namespaces if ", &ViewerConfig.AutoExpandSearchResults);
-                I::SameLine(0, 0);
-                I::SetNextItemWidth(30);
-                if (scoped::Disabled(!ViewerConfig.AutoExpandSearchResults))
-                    I::DragInt("##AutoExpandMaxResults", (int*)&ViewerConfig.AutoExpandSearchMaxResults, 0.1f, 1, 10000000);
-                if (I::IsItemHovered())
-                    I::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-                I::SameLine(0, 0);
-                I::TextUnformatted(" results or fewer");
-
-                I::Checkbox("Auto-open singular search result ", &ViewerConfig.AutoOpenSearchResult);
-                I::SameLine(0, 0);
-                if (scoped::Disabled(!ViewerConfig.AutoOpenSearchResult))
-                    I::Checkbox("in background tab", &ViewerConfig.AutoOpenSearchResultInBackgroundTab);
-
-                I::Separator();
-
-                I::Checkbox("Horizontal scrolling", &ViewerConfig.HorizontalScroll);
-                if (scoped::Disabled(!ViewerConfig.HorizontalScroll))
-                {
-                    I::Checkbox("Auto-scroll right to hide tree indents", &ViewerConfig.HorizontalScrollAutoIndent);
-                    I::Checkbox("Auto-scroll left when nothing is out of bounds", &ViewerConfig.HorizontalScrollAutoContent);
-                }
-
-                I::Separator();
-
-                I::Checkbox("Draw tree lines", &ViewerConfig.DrawTreeLines);
-                I::Checkbox("Draw separators between patches", &ViewerConfig.DrawSeparatorsBetweenReleases);
-                I::SetItemTooltip("Speculative, determined by DataID and GUID desynchronizing their ordering.\nReleases before 2015 don't follow this rule.\nOnly works when sorting by DataID.");
-            }
+            SettingsSection.DrawPopupButton();
         }
 
         if (scoped::TableDockRight("Filter"))
@@ -450,11 +453,11 @@ struct ContentListViewer : ListViewer<ContentListViewer, { ICON_FA_FOLDER_TREE "
         if (scoped::WithStyleVarX(ImGuiStyleVar_ItemInnerSpacing, 0))
         if (scoped::WithStyleVar(ImGuiStyleVar_CellPadding, { I::GetStyle().FramePadding.x, 0 }))
         if (scoped::WithStyleVar(ImGuiStyleVar_IndentSpacing, 16))
-        if (scoped::Table("Table", 7, ImGuiTableFlags_ScrollY | ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_Hideable | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable, { 0, ViewerConfig.HorizontalScroll ? -I::GetStyle().ScrollbarSize : 0 }))
+        if (scoped::Table("Table", 7, ImGuiTableFlags_ScrollY | ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_Hideable | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Sortable, { 0, Config.HorizontalScroll ? -I::GetStyle().ScrollbarSize : 0 }))
         {
             window = I::GetCurrentWindow();
             table = I::GetCurrentTable();
-            if (ViewerConfig.HorizontalScroll && I::GetIO().KeyShift && I::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
+            if (Config.HorizontalScroll && I::GetIO().KeyShift && I::IsWindowHovered(ImGuiHoveredFlags_ChildWindows))
             {
                 I::SetKeyOwner(ImGuiKey_MouseWheelX, window->ID, ImGuiInputFlags_LockThisFrame);
                 float max_step = table->Columns[0].ClipRect.GetWidth() * 0.67f;
@@ -495,14 +498,14 @@ struct ContentListViewer : ListViewer<ContentListViewer, { ICON_FA_FOLDER_TREE "
                     if (ContentFilter.IsFilteringObjects())
                     {
                         auto const filteredObjects = ContentFilter.GetFilteredObjectsCount();
-                        if (ViewerConfig.AutoOpenSearchResult && filteredObjects == 1)
-                            context.OpenObjectButton = ViewerConfig.AutoOpenSearchResultInBackgroundTab ? ImGuiButtonFlags_MouseButtonMiddle : ImGuiButtonFlags_MouseButtonLeft;
-                        if (ViewerConfig.AutoExpandSearchResults && filteredObjects >= 1 && filteredObjects <= ViewerConfig.AutoExpandSearchMaxResults)
+                        if (Config.AutoOpenSearchResult && filteredObjects == 1)
+                            context.OpenObjectButton = Config.AutoOpenSearchResultInBackgroundTab ? ImGuiButtonFlags_MouseButtonMiddle : ImGuiButtonFlags_MouseButtonLeft;
+                        if (Config.AutoExpandSearchResults && filteredObjects >= 1 && filteredObjects <= Config.AutoExpandSearchMaxResults)
                             context.ExpandAll = true;
                     }
                 }
 
-                if (ViewerConfig.HorizontalScroll && ScrollX)
+                if (Config.HorizontalScroll && ScrollX)
                     I::Indent(-ScrollX);
 
                 if (Flatten)
@@ -517,14 +520,14 @@ struct ContentListViewer : ListViewer<ContentListViewer, { ICON_FA_FOLDER_TREE "
                 else
                     context.Draw([&] { ProcessNamespace(*G::Game.Content.GetNamespaceRoot(), context, 0); });
 
-                if (ViewerConfig.HorizontalScroll && ScrollX)
+                if (Config.HorizontalScroll && ScrollX)
                     I::Unindent(-ScrollX);
             }
         }
         if (context.MinDrawnIndent)
             *context.MinDrawnIndent += ScrollX;
 
-        if (ViewerConfig.HorizontalScroll)
+        if (Config.HorizontalScroll)
         {
             auto bb = I::GetWindowScrollbarRect(window, ImGuiAxis_X);
             bb.Max.y = bb.Min.y + I::GetStyle().ScrollbarSize;
@@ -540,9 +543,9 @@ struct ContentListViewer : ListViewer<ContentListViewer, { ICON_FA_FOLDER_TREE "
             if (I::ScrollbarEx(bb, I::GetWindowScrollbarID(window, ImGuiAxis_X), ImGuiAxis_X, &scroll, size_visible, size_padded_contents, ImDrawFlags_RoundCornersBottom))
                 ScrollX = ScrollExpectedX = ScrollTargetX = scroll;
 
-            if (ViewerConfig.HorizontalScrollAutoContent && ScrollExpectedX > size_contents - size_visible)
+            if (Config.HorizontalScrollAutoContent && ScrollExpectedX > size_contents - size_visible)
                 ScrollTargetX = std::max(0.0f, size_contents - size_visible);
-            if (ViewerConfig.HorizontalScrollAutoIndent && context.MinDrawnIndent && ScrollExpectedX <= PrevMinDrawnIndent)
+            if (Config.HorizontalScrollAutoIndent && context.MinDrawnIndent && ScrollExpectedX <= PrevMinDrawnIndent)
                 ScrollTargetX = std::max(0.0f, *context.MinDrawnIndent);
 
             PrevMinDrawnIndent = context.MinDrawnIndent.value_or(0);
@@ -605,12 +608,12 @@ private:
             if (!m_drawing && Locate && *Locate == m_currentItem)
                 m_locateIndex = m_currentIndex;
 
-            if (m_drawing && ViewerConfig.DrawTreeLines && I::GetCursorScreenPos().y + I::GetFrameHeight() >= window->ClipRect.Max.y)
+            if (m_drawing && Config.DrawTreeLines && I::GetCursorScreenPos().y + I::GetFrameHeight() >= window->ClipRect.Max.y)
                 I::TreeNodeDrawLineToChildNode({ table->Columns[0].WorkMinX + window->DC.Indent.x - table->HostIndentX, I::GetCursorScreenPos().y + I::GetFrameHeight() });
 
             if ((open = canOpen && (I::TreeNodeUpdateNextOpen(id, 0) || CollapseAll)))
             {
-                if (m_drawing && ViewerConfig.DrawTreeLines && I::GetCursorScreenPos().y <= window->ClipRect.Min.y)
+                if (m_drawing && Config.DrawTreeLines && I::GetCursorScreenPos().y <= window->ClipRect.Min.y)
                 {
                     ImVec2 const pos { table->Columns[0].WorkMinX + window->DC.Indent.x - table->HostIndentX, I::GetCursorScreenPos().y - I::GetFrameHeight() };
                     I::LastItem().ID = id;
@@ -677,7 +680,7 @@ private:
             if (!m_drawing)
             {
                 m_drawing = true;
-                m_canSkip = !ViewerConfig.DrawTreeLines;
+                m_canSkip = !Config.DrawTreeLines;
                 m_clipper.Begin(m_virtualIndex, I::GetFrameHeight());
                 if (WantsToNavigateLeft() && m_focusedParentIndex >= 0)
                     m_clipper.IncludeItemByIndex(m_focusedParentIndex);
@@ -755,7 +758,7 @@ private:
             return;
 
         ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_NavLeftJumpsToParent;
-        if (ViewerConfig.DrawTreeLines)
+        if (Config.DrawTreeLines)
             flags |= ImGuiTreeNodeFlags_DrawLinesToNodes;
 
         bool open;
@@ -889,7 +892,7 @@ private:
             bool const canOpen = !entry.Entries.empty();
 
             ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_SpanAllColumns | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_NavLeftJumpsToParent;
-            if (ViewerConfig.DrawTreeLines)
+            if (Config.DrawTreeLines)
                 flags |= ImGuiTreeNodeFlags_DrawLinesToNodes;
             if (canOpen)
                 flags |= ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
@@ -989,7 +992,7 @@ private:
 
                 if (auto const prev = std::exchange(context.PreviousObject, &entry))
                 {
-                    if (ViewerConfig.DrawSeparatorsBetweenReleases && Sort == ContentSort::DataID && prev->Type == entry.Type)
+                    if (Config.DrawSeparatorsBetweenReleases && Sort == ContentSort::DataID && prev->Type == entry.Type)
                         if (auto const guidPrev = prev->GetGUID(), guidCurrent = entry.GetGUID(); guidPrev && guidCurrent && *guidPrev > *guidCurrent != SortInvert)
                             if (scoped::TableBackgroundChannel())
                                 I::GetWindowDrawList()->AddLine({ cursorRowStart.x + I::GetFontSize() + I::GetStyle().FramePadding.x * 2, rect.GetTL().y }, rect.GetTR(), I::GetColorU32(ImGuiCol_SeparatorActive));

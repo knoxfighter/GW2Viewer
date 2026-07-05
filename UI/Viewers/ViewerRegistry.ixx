@@ -53,11 +53,11 @@ struct ViewerRegistry
     }
 };
 
-template<typename Viewer, ViewerRegistry::Info Info, auto& Config = ViewerRegistry::EmptyConfig>
+template<typename Viewer, ViewerRegistry::Info Info, auto& ConfigReference = ViewerRegistry::EmptyConfig>
 struct RegisterViewer
 {
     inline static ViewerRegistry::Info const& ViewerInfo = ViewerRegistry::Register<Viewer>(Info);
-    inline static auto& ViewerConfig = Config;
+    inline static auto& Config = ConfigReference;
 };
 
 }

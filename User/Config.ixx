@@ -40,6 +40,26 @@ struct Config
 
     struct UI
     {
+        bool ShowVoiceDecryptionStatusInText = false;
+
+        struct Controls
+        {
+            struct FileButton
+            {
+                bool TooltipModelGrid = false;
+                bool TooltipModelSkeleton = false;
+
+                NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(FileButton
+                    , TooltipModelGrid
+                    , TooltipModelSkeleton
+                )
+            } FileButton;
+
+            NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(Controls
+                , FileButton
+            )
+        } Controls;
+
         struct Viewers
         {
             struct ContentListViewer
@@ -67,16 +87,34 @@ struct Config
                 )
             } ContentListViewer;
 
+            struct PackFileViewer
+            {
+                struct Model
+                {
+                    bool Grid = true;
+                    bool Skeleton = true;
+
+                    NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(Model
+                        , Grid
+                        , Skeleton
+                    )
+                } Model;
+
+                NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(PackFileViewer
+                    , Model
+                )
+            } PackFileViewer;
+
             NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(Viewers
                 , ContentListViewer
+                , PackFileViewer
             )
         } Viewers;
-
-        bool ShowVoiceDecryptionStatusInText = false;
 
         NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(UI
             , ShowVoiceDecryptionStatusInText
 
+            , Controls
             , Viewers
         )
     } UI;

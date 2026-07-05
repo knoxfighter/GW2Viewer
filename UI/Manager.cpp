@@ -194,7 +194,11 @@ void Manager::Update()
     Time::UpdateFrameTime();
     ProcessDeferred();
 
-    static bool needInitialSettings = G::Config.GameExePath.empty() || G::Config.GameDatPath.empty();
+    static auto once = []
+    {
+        G::Windows::Settings.Accepted = !(G::Config.GameExePath.empty() || G::Config.GameDatPath.empty() || G::Config.LocalDatPath.empty());
+        return true;
+    }();
 
     static ImGuiID dockSpace = I::GetID("DockSpace");
     static bool resetDockSpace = !I::DockBuilderGetNode(dockSpace);
@@ -225,9 +229,7 @@ void Manager::Update()
     }
 
     G::Windows::Notify(&Windows::Window::Update);
-    if (G::Windows::Settings.Accepted)
-        needInitialSettings = false;
-    else if (needInitialSettings)
+    if (!G::Windows::Settings.Accepted)
         return G::Windows::Settings.Show();
 
     if (scoped::MainMenuBar())

@@ -5,12 +5,26 @@ import GW2Viewer.Common.Time;
 import GW2Viewer.Data.Archive;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.UI.Viewers.Viewer;
+import GW2Viewer.UI.Windows.Settings;
+import GW2Viewer.User.Config;
 import std;
 #include "Macros.h"
 
 namespace GW2Viewer::UI::Controls
 {
 void OpenFile(Data::Archive::File const& file, Viewers::OpenViewerOptions const& options);
+
+static auto& Config = G::Config.UI.Controls.FileButton;
+inline static auto& SettingsSection = G::Windows::Settings.AddSection({
+    .Name = "FileButton",
+    .Category = Windows::Settings::Category::Controls,
+    .Draw = []
+    {
+        I::TextUnformatted("Tooltip Preview:");
+        I::Checkbox("3D Model: Show Grid", &Config.TooltipModelGrid);
+        I::Checkbox("3D Model: Show Skeleton", &Config.TooltipModelSkeleton);
+    }
+});
 
 export
 {
@@ -43,14 +57,16 @@ bool FileButton(uint32 fileID, Data::Archive::File const* file, FileButtonOption
         {
             Texture(fileID, { .BestVersion = options.TooltipPreviewBestVersion });
 
-            static ModelOptions options { .Grid = false, .Skeleton = true };
             static std::optional<Model> model;
             static uint32 modelFileID = 0;
             if (modelFileID != fileID)
             {
                 modelFileID = fileID;
                 model.reset();
-                model.emplace(options);
+                model.emplace(ModelOptions {
+                    .Grid = Config.TooltipModelGrid,
+                    .Skeleton = Config.TooltipModelSkeleton,
+                });
                 if (model->Load(fileID))
                 {
                     auto const camera = model->GetCamera();
