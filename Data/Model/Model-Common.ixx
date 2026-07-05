@@ -10,19 +10,13 @@ import GW2Viewer.UI.ImGui;
 import GW2Viewer.Utils.Enum;
 import GW2Viewer.Utils.Math;
 import std;
+import directxtk;
 import <d3d11.h>;
 import <DirectXTex.h>;
-import <directxtk/SimpleMath.h>;
 import <wrl/client.h>;
 
 export
 {
-using DirectX::BoundingBox;
-using DirectX::SimpleMath::Matrix;
-using DirectX::SimpleMath::Quaternion;
-using DirectX::SimpleMath::Vector2;
-using DirectX::SimpleMath::Vector3;
-using DirectX::SimpleMath::Vector4;
 using Microsoft::WRL::ComPtr;
 using GW2Viewer::Services::Graphics;
 }

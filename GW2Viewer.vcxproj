@@ -167,6 +167,7 @@
     <ClCompile Include="Data\Text\Manager.ixx" />
     <ClCompile Include="Data\Voice\Manager.cpp" />
     <ClCompile Include="Data\Voice\Manager.ixx" />
+    <ClCompile Include="dep\directxtk.ixx" />
     <ClCompile Include="dep\gw2browser\src\FileReader.cpp" />
     <ClCompile Include="dep\gw2browser\src\Readers\ImageReader.cpp" />
     <ClCompile Include="dep\gw2browser\src\Util\Misc.cpp" />
