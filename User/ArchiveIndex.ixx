@@ -190,6 +190,7 @@ struct ArchiveIndex
     {
         m_kind = source.Kind;
         m_archiveSource = &source;
+        m_path = path;
         assert(m_archiveSource);
 
         bool creating = false;
@@ -259,6 +260,16 @@ struct ArchiveIndex
         m_mappedFile.sync(error);
         if (error)
             std::terminate();
+    }
+    void Backup()
+    {
+        if (!IsLoaded())
+            return;
+
+        auto backup = m_path;
+        backup.replace_filename(std::format(L"{}-backup-{:%F_%H-%M-%S}{}", backup.stem().wstring(), Time::FromTimestamp(m_header->ArchiveTimestampOnLastFullScan), backup.extension().wstring()));
+        if (!exists(backup))
+            copy(m_path, backup);
     }
 
     Data::Archive::Source& GetSource() const
@@ -376,6 +387,7 @@ struct ArchiveIndex
         bool UpdateError = true;
         bool UpdateUncategorized = true;
         bool UpdateCategorized = false;
+        bool Backup = false;
 
         bool ShouldUpdate(Type type) const
         {
@@ -421,6 +433,7 @@ struct ArchiveIndex
 private:
     Data::Archive::Kind m_kind { };
     Data::Archive::Source* m_archiveSource = nullptr;
+    std::filesystem::path m_path;
     mio::mmap_sink m_mappedFile { };
     CacheIndex* m_index = nullptr;
     CacheHeader* m_header = nullptr;
@@ -429,6 +442,9 @@ private:
 
     ScanResult Scan(ScanOptions const& options, ScanProgress& progress, Utils::Async::Context context)
     {
+        if (options.Backup)
+            Backup();
+
         ScanResult result;
         auto process = [this, &options, &progress, &result](uint32 fileID, CacheFile& cache)
         {

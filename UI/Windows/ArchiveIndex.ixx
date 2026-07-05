@@ -9,11 +9,14 @@ import GW2Viewer.Data.Game;
 import GW2Viewer.UI.Controls;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.UI.Manager;
+import GW2Viewer.UI.Windows.Settings;
 import GW2Viewer.UI.Windows.Window;
 import GW2Viewer.User.ArchiveIndex;
+import GW2Viewer.User.Config;
 import GW2Viewer.Utils.Async;
 import GW2Viewer.Utils.Container;
 import GW2Viewer.Utils.Encoding;
+import GW2Viewer.Utils.String;
 import std;
 import magic_enum;
 #include "Macros.h"
@@ -23,6 +26,44 @@ export namespace GW2Viewer::UI::Windows
 
 struct ArchiveIndex : Window
 {
+    inline static auto& Config = G::Config.UI.Windows.ArchiveIndex;
+    inline static auto& SettingsSection = G::Windows::Settings.AddSection({
+        .Name = "Archive Index",
+        .Category = Settings::Category::General,
+        .Draw = []
+        {
+            I::Checkbox("Backup index files before scanning", &Config.Backup);
+            std::vector<std::filesystem::path> backups;
+            uint64 backupsSize = 0;
+            for (auto const& entry : std::filesystem::directory_iterator("."))
+            {
+                if (entry.is_regular_file())
+                {
+                    if (auto path = entry.path();
+                        Utils::String::EqualsCI(path.extension().string(), ".bin") &&
+                        Utils::String::StartsWithCI(path.filename().string(), "ArchiveIndex.") &&
+                        Utils::String::ContainsCI(path.filename().string(), "-backup-"))
+                    {
+                        backupsSize += file_size(path);
+                        backups.emplace_back(std::move(path));
+                    }
+                }
+            }
+            I::AlignTextToFramePadding();
+            I::Text("%zu <c=#8>backups occupying</c> %u MB", backups.size(), (uint32)std::ceil(backupsSize / 1024.0f / 1024.0f));
+            I::SameLine();
+            if (scoped::Disabled(backups.empty()))
+            if (I::Button("Delete"))
+            {
+                for (auto const& backup : backups)
+                {
+                    try { std::filesystem::remove(backup); }
+                    catch (...) { }
+                }
+            }
+        }
+    });
+
     struct Archive
     {
         char const* Name;
@@ -80,6 +121,7 @@ struct ArchiveIndex : Window
                     if (I::Button("Start Full Scan") || std::exchange(RunFullScan, false) && !I::IsDisabled())
                     {
                         ScanProgress = { };
+                        ScanOptions.Backup = Config.Backup;
                         Index.ScanAsync(ScanOptions, ScanProgress, [this](auto const& result)
                         {
                             ScanResult = result;
@@ -235,10 +277,17 @@ struct ArchiveIndex : Window
     std::string Title() override { return "Archive Index"; }
     void Draw() override
     {
+        if (scoped::WithCursorOffset(I::GetContentRegionAvail().x - I::GetFrameHeight(), 0))
+            SettingsSection.DrawPopupButton();
+
         if (scoped::TabBar("##Archives"))
+        {
             for (auto& archive : Archives)
                 if (scoped::TabItem(archive.Name, nullptr, std::exchange(archive.OpenTab, false) ? ImGuiTabItemFlags_SetSelected : 0))
                     archive.Draw();
+
+            I::TabItemSpacing("SettingsPadding", ImGuiTabItemFlags_Trailing, I::GetFrameHeight());
+        }
     }
 };
 

@@ -111,11 +111,28 @@ struct Config
             )
         } Viewers;
 
+        struct Windows
+        {
+            struct ArchiveIndex
+            {
+                bool Backup = false;
+
+                NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(ArchiveIndex
+                    , Backup
+                )
+            } ArchiveIndex;
+
+            NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(Windows
+                , ArchiveIndex
+            )
+        } Windows;
+
         NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(UI
             , ShowVoiceDecryptionStatusInText
 
             , Controls
             , Viewers
+            , Windows
         )
     } UI;
 

@@ -65,22 +65,22 @@ auto Uppercased(std::wstring_view str)
     return result;
 }
 
-bool ContainsCS(std::string_view haystack, std::string_view needle)
-{
-    return haystack.contains(needle);
-}
-bool ContainsCS(std::wstring_view haystack, std::wstring_view needle)
-{
-    return haystack.contains(needle);
-}
-bool ContainsCI(std::string_view haystack, std::string_view needle)
-{
-    return !std::ranges::search(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper).empty();
-}
-bool ContainsCI(std::wstring_view haystack, std::wstring_view needle)
-{
-    return !std::ranges::search(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper).empty();
-}
+bool EqualsCS(std:: string_view haystack, std:: string_view needle) { return haystack == needle; }
+bool EqualsCS(std::wstring_view haystack, std::wstring_view needle) { return haystack == needle; }
+bool EqualsCI(std:: string_view haystack, std:: string_view needle) { return haystack.size() == needle.size() && std::ranges::equal(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper); }
+bool EqualsCI(std::wstring_view haystack, std::wstring_view needle) { return haystack.size() == needle.size() && std::ranges::equal(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper); }
+bool ContainsCS(std:: string_view haystack, std:: string_view needle) { return haystack.contains(needle); }
+bool ContainsCS(std::wstring_view haystack, std::wstring_view needle) { return haystack.contains(needle); }
+bool ContainsCI(std:: string_view haystack, std:: string_view needle) { return haystack.size() >= needle.size() && !std::ranges::search(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper).empty(); }
+bool ContainsCI(std::wstring_view haystack, std::wstring_view needle) { return haystack.size() >= needle.size() && !std::ranges::search(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper).empty(); }
+bool StartsWithCS(std:: string_view haystack, std:: string_view needle) { return haystack.starts_with(needle); }
+bool StartsWithCS(std::wstring_view haystack, std::wstring_view needle) { return haystack.starts_with(needle); }
+bool StartsWithCI(std:: string_view haystack, std:: string_view needle) { return haystack.size() >= needle.size() && std::ranges::starts_with(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper); }
+bool StartsWithCI(std::wstring_view haystack, std::wstring_view needle) { return haystack.size() >= needle.size() && std::ranges::starts_with(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper); }
+bool EndsWithCS(std:: string_view haystack, std:: string_view needle) { return haystack.ends_with(needle); }
+bool EndsWithCS(std::wstring_view haystack, std::wstring_view needle) { return haystack.ends_with(needle); }
+bool EndsWithCI(std:: string_view haystack, std:: string_view needle) { return haystack.size() >= needle.size() && std::ranges::ends_with(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper); }
+bool EndsWithCI(std::wstring_view haystack, std::wstring_view needle) { return haystack.size() >= needle.size() && std::ranges::ends_with(haystack, needle, { }, (int(*)(int))std::toupper, (int(*)(int))std::toupper); }
 
 inline std::vector<std::string_view> Split(std::string_view s, std::string_view delimiter)
 {
