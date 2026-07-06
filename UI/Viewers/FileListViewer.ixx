@@ -12,6 +12,7 @@ import GW2Viewer.UI.Viewers.FileViewer;
 import GW2Viewer.UI.Viewers.ListViewer;
 import GW2Viewer.UI.Viewers.ViewerRegistry;
 import GW2Viewer.UI.Windows.ContentSearch;
+import GW2Viewer.UI.Windows.FileExport;
 import GW2Viewer.User.ArchiveIndex;
 import GW2Viewer.Utils.Async;
 import GW2Viewer.Utils.Encoding;
@@ -459,6 +460,14 @@ struct FileListViewer : ListViewer<FileListViewer, { ICON_FA_FILE " Files", "Fil
                 UpdateFilter();
 
             I::TableNextColumn();
+            if (I::Button(ICON_FA_FLOPPY_DISK))
+            {
+                G::Windows::FileExport.FileIDs.assign_range(FilteredList | std::views::transform([](File const& file) { return file.ID; }));
+                G::Windows::FileExport.InputFileIDs.clear();
+                G::Windows::FileExport.GetShown() ^= true;
+            }
+            I::SetItemTooltip("File List Export");
+            I::SameLine(0, 0);
             auto const viewer = dynamic_cast<FileViewer*>(G::UI.GetCurrentViewer());
             if (scoped::Disabled(!viewer))
                 if (I::Button(ICON_FA_FOLDER_MAGNIFYING_GLASS))

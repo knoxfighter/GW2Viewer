@@ -107,6 +107,7 @@ struct Settings : Window
         }
     };
     auto const& AddSection(Section info) { return *GetSectionRegistry().Sections.emplace(std::move(info)).first; }
+    auto const& GetSection(std::string_view name) { return *std::ranges::find(GetSectionRegistry().Sections, name, &Section::Name); }
 
 private:
     Section const* SelectedSection = nullptr;

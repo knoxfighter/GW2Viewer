@@ -267,6 +267,7 @@
     <ClCompile Include="UI\Windows\ContentExport.ixx" />
     <ClCompile Include="UI\Windows\ContentSearch.ixx" />
     <ClCompile Include="UI\Windows\Demangle.ixx" />
+    <ClCompile Include="UI\Windows\FileExport.ixx" />
     <ClCompile Include="UI\Windows\ListContentValues.ixx" />
     <ClCompile Include="UI\Windows\MigrateContentTypes.ixx" />
     <ClCompile Include="UI\Windows\Notes.ixx" />
