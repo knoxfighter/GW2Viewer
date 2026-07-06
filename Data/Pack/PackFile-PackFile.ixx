@@ -102,6 +102,7 @@ struct PackFile
     std::string_view GetFourCCStringView() const { return { (char const*)&GetHeader().ContentType, strnlen((char const*)&GetHeader().ContentType, 4) }; }
     std::string GetFourCCString() const { return std::string { GetFourCCStringView() }; }
 
+    bool IsValid() const { return GetHeader().Magic[0] == 'P' && GetHeader().Magic[1] == 'F' && GetHeader().HeaderSize == sizeof(FileHeader); }
     bool Is64Bit() const { return GetHeader().Is64Bit; }
 
     auto& CreateLayout() { return *(m_layout = std::make_unique<Layout::Container>()); }

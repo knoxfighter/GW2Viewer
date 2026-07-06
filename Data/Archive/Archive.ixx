@@ -318,7 +318,10 @@ public:
         {
             result = std::make_unique<Pack::PackFile>(size);
             GetFile(fileID, result->GetRawWritableData());
-            result->FinishLoading();
+            if (result->IsValid())
+                result->FinishLoading();
+            else
+                result.reset();
         }
         return result;
     }
