@@ -202,6 +202,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Services\ContentObjectDisplayFormat.ixx" />
     <ClCompile Include="Services\CrashHandler.ixx" />
+    <ClCompile Include="Services\Export.ixx" />
     <ClCompile Include="Services\Filter.ixx" />
     <ClCompile Include="Services\Graphics.ixx" />
     <ClCompile Include="Services\StartupLoading.ixx" />

@@ -64,8 +64,6 @@ public:
 
     std::string MakeDataLink(byte type, uint32 id);
 
-    void ExportData(std::span<byte const> data, std::filesystem::path const& path);
-
     void Defer(std::function<void()>&& func) { std::scoped_lock lock(m_deferredMutex); m_deferred.emplace_back(std::move(func)); }
 
     template<typename T> requires std::is_base_of_v<Viewers::Viewer, T>

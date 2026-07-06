@@ -6,9 +6,9 @@ import GW2Viewer.Common;
 import GW2Viewer.Common.Time;
 import GW2Viewer.Data.Archive;
 import GW2Viewer.Data.Game;
+import GW2Viewer.Services.Export;
 import GW2Viewer.UI.Controls;
 import GW2Viewer.UI.ImGui;
-import GW2Viewer.UI.Manager;
 import GW2Viewer.UI.Windows.Settings;
 import GW2Viewer.UI.Windows.Window;
 import GW2Viewer.User.ArchiveIndex;
@@ -151,7 +151,7 @@ struct ArchiveIndex : Window
                 int attempt = 1;
                 while (exists(path))
                     path.replace_filename(originalPath.stem().string() + std::format(" ({})", attempt++) + originalPath.extension().string());
-                G::UI.ExportData({ (byte const*)Log.data(), Log.size() }, path);
+                G::Services::Export.Data({ (byte const*)Log.data(), Log.size() }, path);
             }
         }
 
@@ -241,12 +241,8 @@ struct ArchiveIndex : Window
                             CHECK_ASYNC;
                             auto const& cache = Index.GetFile(fileID);
                             assert(!cache.IsRevision);
-                            auto data = Index.GetSource().Archive.GetFile(fileID);
-                            std::filesystem::path path = std::format(R"(Export\Index\{:%F_%H-%M-%S}Z_{}_{}\{}.{})", Time::FromTimestamp(Index.GetArchiveTimestamp()), G::Game.Build, Name, fileID, cache.GetFileID() ? cache.GetFileID() : fileID);
-                            create_directories(path.parent_path());
-                            G::UI.ExportData(data, path);
-                            //path += ".png";
-                            //G::Game.Texture.Load(fileID, { .DataSource = &data, .ExportPath = path });
+                            if (auto const file = Index.GetSource().GetFile(fileID))
+                                G::Services::Export.File(*file, { .Path = std::format(R"(Export\Index\{:%F_%H-%M-%S}Z_{}_{}\{}.{})", Time::FromTimestamp(Index.GetArchiveTimestamp()), G::Game.Build, Name, fileID, cache.GetFileID() ? cache.GetFileID() : fileID), .Convert = false });
                             context->Increment();
                         }
 

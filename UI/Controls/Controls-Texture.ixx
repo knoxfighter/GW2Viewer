@@ -11,7 +11,7 @@ export namespace GW2Viewer::UI::Controls
 
 struct TextureOptions
 {
-    std::vector<byte> const* Data;
+    std::span<byte const> DataSource;
     ImVec4 Color { 1, 1, 1, 1 };
     ImVec2 Size { };
     Radians Rotation { };
@@ -32,7 +32,7 @@ bool Texture(uint32 textureFileID, TextureOptions const& options = { })
         if (auto const file = G::Game.Archive.GetFileEntry(textureFileID))
             textureFileID = file->GetBestVersion().ID;
 
-    if (auto const texture = G::Game.Texture.Get(textureFileID, { .DataSource = options.Data }))
+    if (auto const texture = G::Game.Texture.Get(textureFileID, { .DataSource = options.DataSource }))
     {
         ImVec2 const fullSize { (float)texture->Texture->Width, (float)texture->Texture->Height };
         ImVec2 offset { };

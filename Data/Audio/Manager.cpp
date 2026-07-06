@@ -56,7 +56,7 @@ bool Manager::PlayVoice(uint32 voiceID, PlayOptions const& options)
         {
             std::filesystem::path const path = std::format(R"(Export\Voice\{}\{}.mp3)", options.Language, voiceID);
             if (!options.ExportSkipExisting || !((result = exists(path))))
-                result = G::Services::Export.ExportData(data, path);
+                result = G::Services::Export.Data(data, path);
         }
 
         if (options.Play && play)
@@ -115,7 +115,7 @@ bool Manager::PlayFile(uint32 fileID, PlayOptions const& options)
         {
             std::filesystem::path const path = std::format(R"(Export\{}.{})", fileID, format == 0 ? "wav" : format == 1 ? "mp3" : format == 2 ? "ogg" : "unk");
             if (!options.ExportSkipExisting || !((result = exists(path))))
-                result = G::Services::Export.ExportData(data, path);
+                result = G::Services::Export.Data(data, path);
         }
 
         if (options.Play && play)

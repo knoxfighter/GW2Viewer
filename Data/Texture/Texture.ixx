@@ -24,9 +24,10 @@ struct Texture
 
 struct LoadTextureOptions
 {
-    std::vector<byte> const* DataSource = nullptr;
+    std::span<byte const> DataSource;
     std::filesystem::path ExportPath;
     bool NoUnload = false;
+    bool BlockUntilLoaded = false; // Make sure the call comes from an async thread when using this
 };
 
 struct TextureEntry : std::enable_shared_from_this<TextureEntry>

@@ -1,6 +1,7 @@
 ﻿module GW2Viewer.UI.Viewers.FileViewer;
 import GW2Viewer.Common.FourCC;
 import GW2Viewer.Data.Game;
+import GW2Viewer.Services.Export;
 import GW2Viewer.UI.Controls;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.UI.Manager;
@@ -15,12 +16,7 @@ void FileViewer::Open(TargetType target, OpenViewerOptions const& options)
 {
     if (I::GetIO().KeyAlt)
     {
-        auto data = target.GetData();
-        std::filesystem::path path = std::format(R"(Export\{})", target.ID);
-        create_directories(path.parent_path());
-        G::UI.ExportData(data, path);
-        path.replace_extension(".png");
-        G::Game.Texture.Load(target.ID, { .DataSource = &data, .ExportPath = path });
+        G::Services::Export.File(target);
         return;
     }
 
@@ -95,7 +91,7 @@ void FileViewer::Draw()
 
 void FileViewer::DrawPreview()
 {
-    Controls::Texture(File.ID, { .Data = &RawData, .BestVersion = false });
+    Controls::Texture(File.ID, { .DataSource = RawData, .BestVersion = false });
 }
 
 std::unique_ptr<FileViewer> Init(uint32 id, bool newTab, FileViewer::TargetType file)

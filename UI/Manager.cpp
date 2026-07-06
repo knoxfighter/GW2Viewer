@@ -8,6 +8,7 @@ import GW2Viewer.Content;
 import GW2Viewer.Data.Encryption.Asset;
 import GW2Viewer.Data.Encryption.RC4;
 import GW2Viewer.Data.Game;
+import GW2Viewer.Services.Export;
 import GW2Viewer.Services.StartupLoading;
 import GW2Viewer.UI.ImGui;
 import GW2Viewer.UI.Notifications;
@@ -291,7 +292,7 @@ void Manager::Update()
             if (I::MenuItem("Export Content Files"))
                 for (auto const fileID : G::Game.Content.GetFileIDs())
                     if (auto data = G::Game.Archive.GetFile(fileID); !data.empty())
-                        ExportData(data, std::format(R"(Export\Game Content\cntc\{}\{}.cntc)", G::Game.Build, fileID));
+                        G::Services::Export.Data(data, std::format(R"(Export\Game Content\cntc\{}\{}.cntc)", G::Game.Build, fileID));
             I::MenuItem("Migrate Content Types", nullptr, &G::Windows::MigrateContentTypes.GetShown());
         }
         I::Text("<c=#8>Gw2: %u</c>", G::Game.Build);
@@ -414,12 +415,6 @@ std::string Manager::MakeDataLink(byte type, uint32 id)
             return std::format("[&{}]", Utils::Base64::Encode({ (char const*)&dataLink, sizeof(dataLink) }));
         }
     }
-}
-
-void Manager::ExportData(std::span<byte const> data, std::filesystem::path const& path)
-{
-    create_directories(path.parent_path());
-    std::ofstream(path, std::ios::binary).write((char const*)data.data(), data.size());
 }
 
 }

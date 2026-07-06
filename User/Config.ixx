@@ -136,6 +136,30 @@ struct Config
         )
     } UI;
 
+    struct Services
+    {
+        struct Export
+        {
+            bool ExportRawAlways = false;
+            bool ExportRawIfNotConverted = true;
+            bool ConvertTexture = true;
+            bool ConvertSound = true;
+            bool SkipExisting = false;
+
+            NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(Export
+                , ExportRawAlways
+                , ExportRawIfNotConverted
+                , ConvertTexture
+                , ConvertSound
+                , SkipExisting
+            )
+        } Export;
+
+        NLOHMANN_DEFINE_TYPE_ORDERED_INTRUSIVE_WITH_DEFAULT(Services
+            , Export
+        )
+    } Services;
+
     bool ShowImGuiDemo = false;
     bool ShowOriginalNames = false;
     bool ShowValidRawPointers = false;

@@ -9,6 +9,7 @@ module GW2Viewer.Data.Texture.Manager;
 import GW2Viewer.Common.Time;
 import GW2Viewer.Data.Game;
 import GW2Viewer.Services.Graphics;
+import GW2Viewer.Utils.Thread;
 import <gsl/util>;
 
 void StripPNGMetadata(std::filesystem::path const& path)
@@ -167,7 +168,7 @@ std::unique_ptr<Texture> Manager::Create(uint32 width, uint32 height, void const
 
 TextureEntry const* Manager::Load(uint32 fileID, LoadTextureOptions const& options)
 {
-    std::scoped_lock _(m_mutex);
+    std::unique_lock lock(m_mutex);
     auto [itr, added] = m_textures.try_emplace(fileID, nullptr);
     if (!added)
     {
@@ -175,8 +176,8 @@ TextureEntry const* Manager::Load(uint32 fileID, LoadTextureOptions const& optio
         {
             TextureEntry temp;
             temp.FileID = fileID;
-            if (options.DataSource)
-                temp.Data = *options.DataSource;
+            if (!options.DataSource.empty())
+                temp.Data = { std::from_range, options.DataSource };
             else
                 temp.Data = G::Game.Archive.GetFile(fileID);
             temp.Options = options;
@@ -188,14 +189,20 @@ TextureEntry const* Manager::Load(uint32 fileID, LoadTextureOptions const& optio
     auto& texture = itr->second;
     texture = std::make_shared<TextureEntry>();
     texture->FileID = fileID;
-    if (options.DataSource)
-        texture->Data = *options.DataSource;
+    if (!options.DataSource.empty())
+        texture->Data = { std::from_range, options.DataSource };
     texture->Options = options;
     texture->TextureLoadingState = TextureEntry::TextureLoadingStates::Queued;
     m_loadingQueue.enqueue(texture->weak_from_this());
 
     if (!m_loadingThread)
         m_loadingThread.emplace([this] { LoadingThread(); });
+
+    if (options.BlockUntilLoaded)
+    {
+        lock.unlock();
+        Utils::Thread::SleepUntil(10ms, [&texture] { return texture->TextureLoadingState == TextureEntry::TextureLoadingStates::Loaded || texture->TextureLoadingState == TextureEntry::TextureLoadingStates::Error; });
+    }
 
     return texture.get();
 }
@@ -211,7 +218,7 @@ uint32 Manager::Load(std::filesystem::path const& localFilePath, LoadTextureOpti
 
     std::scoped_lock _(m_mutex);
     uint32 const fileID = m_nextLocalFileID--;
-    Load(fileID, { .DataSource = &data, .NoUnload = true });
+    Load(fileID, { .DataSource = data, .NoUnload = true });
     return fileID;
 }
 
@@ -375,6 +382,7 @@ std::unique_ptr<Manager::BoxedImage> Manager::GetTextureRGBAImage(TextureEntry& 
 
 void Manager::LoadingThread()
 {
+    Utils::Thread::SetName("Data::Texture::Manager::LoadingThread");
     while (!m_loadingThreadExitRequested)
     {
         std::weak_ptr<TextureEntry> texturePtr;
