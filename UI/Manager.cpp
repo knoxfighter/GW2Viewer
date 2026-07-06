@@ -79,6 +79,7 @@ void Manager::Load()
     Fonts.GameHeading = loadFont("menomonia.ttf", 18.0f);
     Fonts.GameHeadingItalic = loadFont("menomonia-italic.ttf", 18.0f);
     io.FontDefault = Fonts.Default;
+    I::SetCurrentFont(Fonts.Default, Fonts.Default->LegacySize, 0.0f); // Hack to allow viewer constructors to use font size
 
     auto loadTexture = [&](std::filesystem::path const& filename)
     {
