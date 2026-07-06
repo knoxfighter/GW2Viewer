@@ -1,5 +1,6 @@
 export module GW2Viewer.Data.Game;
 import GW2Viewer.Common;
+import GW2Viewer.Data.Audio.Manager;
 import GW2Viewer.Data.Archive.Manager;
 import GW2Viewer.Data.Content.Manager;
 import GW2Viewer.Data.Encryption.Manager;
@@ -19,6 +20,7 @@ struct Game
     uint32 Build = 0;
     std::set<uint32> ReferencedFiles;
 
+    Audio::Manager Audio;
     Archive::Manager Archive;
     Content::Manager Content;
     Encryption::Manager Encryption;

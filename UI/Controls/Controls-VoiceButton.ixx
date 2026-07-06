@@ -5,7 +5,6 @@ import GW2Viewer.Data.Encryption;
 import GW2Viewer.Data.Encryption.Asset;
 import GW2Viewer.Data.Game;
 import GW2Viewer.UI.ImGui;
-import GW2Viewer.UI.Manager;
 import GW2Viewer.User.Config;
 import GW2Viewer.Utils.Format;
 import std;
@@ -39,7 +38,7 @@ Data::Encryption::Status VoiceButton(uint32 voiceID, VoiceButtonOptions const& o
         return I::Button(text.c_str());
 
     }())
-        G::UI.PlayVoice(voiceID);
+        G::Game.Audio.PlayVoice(voiceID, { .Play = !I::GetIO().KeyAlt, .Export = I::GetIO().KeyAlt });
 
     return status;
 }

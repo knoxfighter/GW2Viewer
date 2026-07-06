@@ -96,6 +96,8 @@
     <ClCompile Include="Data\Archive\Archive.ixx" />
     <ClCompile Include="Data\Archive\Manager.cpp" />
     <ClCompile Include="Data\Archive\Manager.ixx" />
+    <ClCompile Include="Data\Audio\Manager.cpp" />
+    <ClCompile Include="Data\Audio\Manager.ixx" />
     <ClCompile Include="Data\Content\Content-ContentFilter.ixx" />
     <ClCompile Include="Data\Content\Content-ContentName.ixx" />
     <ClCompile Include="Data\Content\Content-ContentNamespace.cpp" />

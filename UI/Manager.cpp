@@ -1,6 +1,5 @@
 ﻿module;
 //#include <cpp-base64/base64.h>
-#include "dep/fmod/fmod.hpp"
 #include <cstddef>
 
 module GW2Viewer.UI.Manager;
@@ -415,60 +414,6 @@ std::string Manager::MakeDataLink(byte type, uint32 id)
             return std::format("[&{}]", Utils::Base64::Encode({ (char const*)&dataLink, sizeof(dataLink) }));
         }
     }
-}
-
-void Manager::PlayVoice(uint32 voiceID)
-{
-    auto const data = G::Game.Voice.Get(voiceID, G::Config.Language);
-    if (data.empty())
-        return;
-
-    static std::unique_ptr<FMOD::System, decltype([](FMOD::System* system) { system->release(); })> system([]() -> FMOD::System*
-    {
-        FMOD::System* system;
-        if (System_Create(&system) != FMOD_OK)
-            return nullptr;
-        if (system->init(32, FMOD_INIT_NORMAL, nullptr) != FMOD_OK)
-            return nullptr;
-        return system;
-    }());
-
-    if (!system)
-        return;
-
-    FMOD_CREATESOUNDEXINFO info
-    {
-        .cbsize = sizeof(FMOD_CREATESOUNDEXINFO),
-        .length = (uint32)data.size(),
-    };
-    try
-    {
-        static FMOD::Channel* channel = nullptr;
-        if (channel)
-            std::exchange(channel, nullptr)->stop();
-
-        FMOD::Sound* sound;
-        if (system->createSound((char const*)data.data(), FMOD_OPENMEMORY, &info, &sound) != FMOD_OK)
-        {
-            auto const key = G::Game.Encryption.GetAssetKey(Data::Encryption::AssetType::Voice, voiceID);
-            if (!key)
-                return;
-
-            std::vector encrypted { std::from_range, data };
-            Data::Encryption::RC4(Data::Encryption::RC4::MakeKey(*key)).Crypt(encrypted);
-            if (system->createSound((char const*)encrypted.data(), FMOD_OPENMEMORY, &info, &sound) != FMOD_OK)
-                return;
-
-            if (I::GetIO().KeyAlt)
-                return ExportData(encrypted, std::format(R"(Export\Voice\{}\{}.mp3)", G::Config.Language, voiceID));
-        }
-
-        if (I::GetIO().KeyAlt)
-            return ExportData(data, std::format(R"(Export\Voice\{}\{}.mp3)", G::Config.Language, voiceID));
-
-        system->playSound(sound, nullptr, false, &channel);
-    }
-    catch(...) { }
 }
 
 void Manager::ExportData(std::span<byte const> data, std::filesystem::path const& path)

@@ -21,6 +21,8 @@ import <boost/container_hash/hash.hpp>;
 namespace GW2Viewer::UI
 {
 
+export namespace Viewers { struct PackFileViewer; }
+
 std::string* g_writeTokensTargets;
 std::string* g_writeStringsTargets;
 struct FoldKey
@@ -472,7 +474,7 @@ void DrawPackFileType(byte const*& p, bool x64, Data::Pack::Layout::Type const* 
 struct PackFileChunkPreviewBase
 {
     virtual ~PackFileChunkPreviewBase() = default;
-    virtual void DrawPreview(Data::Pack::Layout::Traversal::QueryChunk const& chunk) { }
+    virtual void DrawPreview(Viewers::PackFileViewer& viewer, Data::Pack::Layout::Traversal::QueryChunk const& chunk) { }
 };
 auto& GetPackFileChunkPreviewRegistry()
 {
@@ -485,179 +487,6 @@ struct RegisterPackFileChunkPreview
     static bool Register();
     inline static bool Registered = Register();
 };
-
-template<fcc FourCC>
-struct PackFileChunkPreview : PackFileChunkPreviewBase { };
-
-template<>
-struct PackFileChunkPreview<fcc::PGTB> : RegisterPackFileChunkPreview<fcc::PGTB>, PackFileChunkPreviewBase
-{
-    std::optional<ImVec2> ViewportOffset { };
-
-    void DrawPreview(Data::Pack::Layout::Traversal::QueryChunk const& chunk) override
-    {
-        struct Layer
-        {
-            ImVec2 StrippedDims { };
-            ImRect ContentsRect { };
-        };
-        std::vector<Layer> layers;
-        layers.reserve(chunk["layers"].GetArraySize());
-        for (auto const& layerData : chunk["layers"])
-        {
-            auto& layer = layers.emplace_back();
-            std::array<float, 2> strippedDims = layerData["strippedDims"];
-            layer.StrippedDims = { strippedDims[0], strippedDims[1] };
-        }
-
-#pragma pack(push, 4)
-        static struct PixelBuffer
-        {
-            ImVec4 Channels { 1, 1, 1, 1 };
-            int AlphaMode;
-            float Padding[3];
-        } pixelBuffer { };
-#pragma pack(pop)
-        static_assert(sizeof(PixelBuffer) % 16 == 0); // Shader requirement to buffers
-        if (bool channel = pixelBuffer.Channels.x == 1; I::CheckboxButton("<c=#F00>" ICON_FA_SQUARE "</c>", channel, "Show Red Channel", { I::GetFrameHeight(), I::GetFrameHeight() }))
-            pixelBuffer.Channels.x = channel ? 1 : 0;
-        I::SameLine(0, 0);
-        if (bool channel = pixelBuffer.Channels.y == 1; I::CheckboxButton("<c=#0F0>" ICON_FA_SQUARE "</c>", channel, "Show Green Channel", { I::GetFrameHeight(), I::GetFrameHeight() }))
-            pixelBuffer.Channels.y = channel ? 1 : 0;
-        I::SameLine(0, 0);
-        if (bool channel = pixelBuffer.Channels.z == 1; I::CheckboxButton("<c=#00F>" ICON_FA_SQUARE "</c>", channel, "Show Blue Channel", { I::GetFrameHeight(), I::GetFrameHeight() }))
-            pixelBuffer.Channels.z = channel ? 1 : 0;
-        I::SameLine();
-        I::AlignTextToFramePadding();
-        I::TextUnformatted(ICON_FA_GAME_BOARD_SIMPLE);
-        I::SameLine(0, 0);
-        if (I::Button(std::format("<c=#{}>" ICON_FA_VIRUS "</c><c=#{}>" ICON_FA_SQUARE_VIRUS "</c><c=#{}>" ICON_FA_SQUARE "</c>###AlphaMode", pixelBuffer.AlphaMode == 0 ? "F" : "4", pixelBuffer.AlphaMode == 1 ? "F" : "4",             pixelBuffer.AlphaMode == 2 ? "F" : "4").c_str(), { 0, I::GetFrameHeight() }))
-            pixelBuffer.AlphaMode = (pixelBuffer.AlphaMode + 1) % 3;
-        static int selectedLayer = -1;
-        if (layers.size() > 1)
-        {
-            I::SameLine();
-            I::TextUnformatted("Layer:");
-            I::SameLine();
-            I::SetNextItemWidth(100);
-            I::SliderInt("##Layer", &selectedLayer, -1, layers.size() - 1);
-        }
-        if (selectedLayer >= (int)layers.size())
-            selectedLayer = layers.size();
-        static auto buffer = ImGui_ImplDX11_CreateBuffer(sizeof(PixelBuffer));
-        static auto shader = ImGui_ImplDX11_CompilePixelShader(R"(
-cbuffer pixelBuffer : register(b0)
-{
-    float4 Channels;
-    int AlphaMode;
-    float Padding[2];
-};
-struct PS_INPUT
-{
-    float4 pos : SV_POSITION;
-    float4 col : COLOR0;
-    float2 uv  : TEXCOORD0;
-};
-sampler sampler0;
-Texture2D texture0;
-
-float4 main(PS_INPUT input) : SV_Target
-{
-    float4 tex = texture0.Sample(sampler0, input.uv);
-    float4 out_col = input.col * tex * Channels;
-    if (AlphaMode == 1)
-        out_col.rgba = float4(out_col.aaa, 1.0f);
-    else if (AlphaMode == 2)
-        out_col.a = 1.0f;
-    return out_col;
-}
-)");
-
-        auto const cursor = I::GetCursorScreenPos();
-        auto const viewportSize = I::GetContentRegionAvail();
-        ImRect const viewportScreenRect { cursor, cursor + viewportSize };
-        scoped::Child("Viewport", viewportSize, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-        I::InvisibleButton("Canvas", viewportSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
-
-        bool const initViewportOffset = !ViewportOffset;
-        if (initViewportOffset)
-            ViewportOffset.emplace();
-        if (I::IsItemActive() && I::IsMouseDragging(ImGuiMouseButton_Left))
-        {
-            float const scale = (I::GetIO().KeyShift ? 10.0f : 1.0f) * (I::GetIO().KeyCtrl ? 100.0f : 1.0f);
-            *ViewportOffset -= I::GetMouseDragDelta(ImGuiMouseButton_Left) * scale;
-            I::ResetMouseDragDelta(ImGuiMouseButton_Left);
-        }
-        *ViewportOffset = { (float)(int)ViewportOffset->x, (float)(int)ViewportOffset->y };
-
-        I::GetWindowDrawList()->AddCallback([](ImDrawList const* parent_list, ImDrawCmd const* cmd)
-        {
-            ImGui_ImplDX11_SetPixelShader(shader);
-            ImGui_ImplDX11_SetPixelShaderConstantBuffer(buffer, &pixelBuffer, sizeof(pixelBuffer));
-        }, nullptr);
-
-        for (auto const& pageData : chunk["strippedPages"])
-        {
-            std::array<float, 2> const coord = pageData["coord"];
-            uint32 const layerIndex = pageData["layer"];
-
-            auto& layer = layers.at(layerIndex);
-            ImVec2 pagePos = layer.StrippedDims * ImVec2 { coord[0], coord[1] };
-            if (layer.ContentsRect.Min == layer.ContentsRect.Max)
-                layer.ContentsRect = { pagePos, pagePos + layer.StrippedDims };
-            else
-                layer.ContentsRect.Add(ImRect { pagePos, pagePos + layer.StrippedDims });
-            ImVec2 drawPos = cursor - *ViewportOffset + pagePos;
-            if ((layerIndex == selectedLayer || selectedLayer < 0) && viewportScreenRect.Overlaps({ drawPos, drawPos + layer.StrippedDims }))
-                if (scoped::WithCursorScreenPos(drawPos))
-                    Controls::Texture(pageData["filename"], { .Size = layer.StrippedDims, .FullPreviewOnHover = false, .AdvanceCursor = false });
-        }
-
-        I::GetWindowDrawList()->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
-
-        if (initViewportOffset)
-            ViewportOffset = layers[0].ContentsRect.GetCenter() - viewportSize * 0.5f;
-    }
-};
-
-template<>
-struct PackFileChunkPreview<fcc::MODL> : RegisterPackFileChunkPreview<fcc::MODL>, PackFileChunkPreviewBase
-{
-    inline static auto& Config = G::Config.UI.Viewers.PackFileViewer.Model;
-    inline static auto& SettingsSection = G::Windows::Settings.AddSection({
-        .Name = "PackFileViewer: Model",
-        .Category = Windows::Settings::Category::Viewers,
-        .Draw = []
-        {
-            I::Checkbox("Show Grid by Default", &Config.Grid);
-            I::Checkbox("Show Skeleton by Default", &Config.Skeleton);
-        }
-    });
-
-    Controls::Model Model { {
-        .Grid = Config.Grid,
-        .Skeleton = Config.Skeleton,
-    } };
-    bool Loaded = false;
-
-    void DrawPreview(Data::Pack::Layout::Traversal::QueryChunk const& chunk) override
-    {
-        if (!Loaded)
-        {
-            Loaded = true;
-            Model.Load(chunk.File);
-        }
-        Model.Draw({
-            .UI = true,
-            .BarRightAppendCallback = [] { SettingsSection.DrawPopupButton(); },
-        });
-    }
-};
-
-template<fcc FourCC> bool RegisterPackFileChunkPreview<FourCC>::Register()
-{
-    return [] { return GetPackFileChunkPreviewRegistry().emplace(FourCC, []<typename... Args>(Args&&... args) { return new PackFileChunkPreview<FourCC>(std::forward<Args>(args)...); }).second; }();
-}
 
 export namespace Viewers
 {
@@ -821,11 +650,199 @@ struct PackFileViewer : FileViewer
                     preview.reset(itr->second());
 
             if (preview)
-                preview->DrawPreview(PackFile->QueryChunk(chunk.Header.Magic));
+                preview->DrawPreview(*this, PackFile->QueryChunk(chunk.Header.Magic));
         }
     }
 };
 
+}
+
+template<fcc FourCC>
+struct PackFileChunkPreview : PackFileChunkPreviewBase { };
+
+template<>
+struct PackFileChunkPreview<fcc::ASND> : RegisterPackFileChunkPreview<fcc::ASND>, PackFileChunkPreviewBase
+{
+    bool Played = false;
+
+    void DrawPreview(Viewers::PackFileViewer& viewer, Data::Pack::Layout::Traversal::QueryChunk const& chunk) override
+    {
+        if (!Played)
+        {
+            Played = true;
+            G::Game.Audio.PlayFile(viewer.File.ID, { .DataSource = chunk.File.GetRawData() });
+        }
+    }
+};
+
+template<>
+struct PackFileChunkPreview<fcc::PGTB> : RegisterPackFileChunkPreview<fcc::PGTB>, PackFileChunkPreviewBase
+{
+    std::optional<ImVec2> ViewportOffset { };
+
+    void DrawPreview(Viewers::PackFileViewer& viewer, Data::Pack::Layout::Traversal::QueryChunk const& chunk) override
+    {
+        struct Layer
+        {
+            ImVec2 StrippedDims { };
+            ImRect ContentsRect { };
+        };
+        std::vector<Layer> layers;
+        layers.reserve(chunk["layers"].GetArraySize());
+        for (auto const& layerData : chunk["layers"])
+        {
+            auto& layer = layers.emplace_back();
+            std::array<float, 2> strippedDims = layerData["strippedDims"];
+            layer.StrippedDims = { strippedDims[0], strippedDims[1] };
+        }
+
+#pragma pack(push, 4)
+        static struct PixelBuffer
+        {
+            ImVec4 Channels { 1, 1, 1, 1 };
+            int AlphaMode;
+            float Padding[3];
+        } pixelBuffer { };
+#pragma pack(pop)
+        static_assert(sizeof(PixelBuffer) % 16 == 0); // Shader requirement to buffers
+        if (bool channel = pixelBuffer.Channels.x == 1; I::CheckboxButton("<c=#F00>" ICON_FA_SQUARE "</c>", channel, "Show Red Channel", { I::GetFrameHeight(), I::GetFrameHeight() }))
+            pixelBuffer.Channels.x = channel ? 1 : 0;
+        I::SameLine(0, 0);
+        if (bool channel = pixelBuffer.Channels.y == 1; I::CheckboxButton("<c=#0F0>" ICON_FA_SQUARE "</c>", channel, "Show Green Channel", { I::GetFrameHeight(), I::GetFrameHeight() }))
+            pixelBuffer.Channels.y = channel ? 1 : 0;
+        I::SameLine(0, 0);
+        if (bool channel = pixelBuffer.Channels.z == 1; I::CheckboxButton("<c=#00F>" ICON_FA_SQUARE "</c>", channel, "Show Blue Channel", { I::GetFrameHeight(), I::GetFrameHeight() }))
+            pixelBuffer.Channels.z = channel ? 1 : 0;
+        I::SameLine();
+        I::AlignTextToFramePadding();
+        I::TextUnformatted(ICON_FA_GAME_BOARD_SIMPLE);
+        I::SameLine(0, 0);
+        if (I::Button(std::format("<c=#{}>" ICON_FA_VIRUS "</c><c=#{}>" ICON_FA_SQUARE_VIRUS "</c><c=#{}>" ICON_FA_SQUARE "</c>###AlphaMode", pixelBuffer.AlphaMode == 0 ? "F" : "4", pixelBuffer.AlphaMode == 1 ? "F" : "4",             pixelBuffer.AlphaMode == 2 ? "F" : "4").c_str(), { 0, I::GetFrameHeight() }))
+            pixelBuffer.AlphaMode = (pixelBuffer.AlphaMode + 1) % 3;
+        static int selectedLayer = -1;
+        if (layers.size() > 1)
+        {
+            I::SameLine();
+            I::TextUnformatted("Layer:");
+            I::SameLine();
+            I::SetNextItemWidth(100);
+            I::SliderInt("##Layer", &selectedLayer, -1, layers.size() - 1);
+        }
+        if (selectedLayer >= (int)layers.size())
+            selectedLayer = layers.size();
+        static auto buffer = ImGui_ImplDX11_CreateBuffer(sizeof(PixelBuffer));
+        static auto shader = ImGui_ImplDX11_CompilePixelShader(R"(
+cbuffer pixelBuffer : register(b0)
+{
+    float4 Channels;
+    int AlphaMode;
+    float Padding[2];
+};
+struct PS_INPUT
+{
+    float4 pos : SV_POSITION;
+    float4 col : COLOR0;
+    float2 uv  : TEXCOORD0;
+};
+sampler sampler0;
+Texture2D texture0;
+
+float4 main(PS_INPUT input) : SV_Target
+{
+    float4 tex = texture0.Sample(sampler0, input.uv);
+    float4 out_col = input.col * tex * Channels;
+    if (AlphaMode == 1)
+        out_col.rgba = float4(out_col.aaa, 1.0f);
+    else if (AlphaMode == 2)
+        out_col.a = 1.0f;
+    return out_col;
+}
+)");
+
+        auto const cursor = I::GetCursorScreenPos();
+        auto const viewportSize = I::GetContentRegionAvail();
+        ImRect const viewportScreenRect { cursor, cursor + viewportSize };
+        scoped::Child("Viewport", viewportSize, ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        I::InvisibleButton("Canvas", viewportSize, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+
+        bool const initViewportOffset = !ViewportOffset;
+        if (initViewportOffset)
+            ViewportOffset.emplace();
+        if (I::IsItemActive() && I::IsMouseDragging(ImGuiMouseButton_Left))
+        {
+            float const scale = (I::GetIO().KeyShift ? 10.0f : 1.0f) * (I::GetIO().KeyCtrl ? 100.0f : 1.0f);
+            *ViewportOffset -= I::GetMouseDragDelta(ImGuiMouseButton_Left) * scale;
+            I::ResetMouseDragDelta(ImGuiMouseButton_Left);
+        }
+        *ViewportOffset = { (float)(int)ViewportOffset->x, (float)(int)ViewportOffset->y };
+
+        I::GetWindowDrawList()->AddCallback([](ImDrawList const* parent_list, ImDrawCmd const* cmd)
+        {
+            ImGui_ImplDX11_SetPixelShader(shader);
+            ImGui_ImplDX11_SetPixelShaderConstantBuffer(buffer, &pixelBuffer, sizeof(pixelBuffer));
+        }, nullptr);
+
+        for (auto const& pageData : chunk["strippedPages"])
+        {
+            std::array<float, 2> const coord = pageData["coord"];
+            uint32 const layerIndex = pageData["layer"];
+
+            auto& layer = layers.at(layerIndex);
+            ImVec2 pagePos = layer.StrippedDims * ImVec2 { coord[0], coord[1] };
+            if (layer.ContentsRect.Min == layer.ContentsRect.Max)
+                layer.ContentsRect = { pagePos, pagePos + layer.StrippedDims };
+            else
+                layer.ContentsRect.Add(ImRect { pagePos, pagePos + layer.StrippedDims });
+            ImVec2 drawPos = cursor - *ViewportOffset + pagePos;
+            if ((layerIndex == selectedLayer || selectedLayer < 0) && viewportScreenRect.Overlaps({ drawPos, drawPos + layer.StrippedDims }))
+                if (scoped::WithCursorScreenPos(drawPos))
+                    Controls::Texture(pageData["filename"], { .Size = layer.StrippedDims, .FullPreviewOnHover = false, .AdvanceCursor = false });
+        }
+
+        I::GetWindowDrawList()->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+
+        if (initViewportOffset)
+            ViewportOffset = layers[0].ContentsRect.GetCenter() - viewportSize * 0.5f;
+    }
+};
+
+template<>
+struct PackFileChunkPreview<fcc::MODL> : RegisterPackFileChunkPreview<fcc::MODL>, PackFileChunkPreviewBase
+{
+    inline static auto& Config = G::Config.UI.Viewers.PackFileViewer.Model;
+    inline static auto& SettingsSection = G::Windows::Settings.AddSection({
+        .Name = "PackFileViewer: Model",
+        .Category = Windows::Settings::Category::Viewers,
+        .Draw = []
+        {
+            I::Checkbox("Show Grid by Default", &Config.Grid);
+            I::Checkbox("Show Skeleton by Default", &Config.Skeleton);
+        }
+    });
+
+    Controls::Model Model { {
+        .Grid = Config.Grid,
+        .Skeleton = Config.Skeleton,
+    } };
+    bool Loaded = false;
+
+    void DrawPreview(Viewers::PackFileViewer& viewer, Data::Pack::Layout::Traversal::QueryChunk const& chunk) override
+    {
+        if (!Loaded)
+        {
+            Loaded = true;
+            Model.Load(chunk.File);
+        }
+        Model.Draw({
+            .UI = true,
+            .BarRightAppendCallback = [] { SettingsSection.DrawPopupButton(); },
+        });
+    }
+};
+
+template<fcc FourCC> bool RegisterPackFileChunkPreview<FourCC>::Register()
+{
+    return [] { return GetPackFileChunkPreviewRegistry().emplace(FourCC, []<typename... Args>(Args&&... args) { return new PackFileChunkPreview<FourCC>(std::forward<Args>(args)...); }).second; }();
 }
 
 }
