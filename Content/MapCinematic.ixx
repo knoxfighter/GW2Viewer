@@ -50,7 +50,7 @@ struct MapCinematic
             if (auto const string = G::Game.Text.Get(group.TextID).first)
                 return Utils::String::SingleLined(Utils::Encoding::ToUTF8(*string));
 
-            for (auto const& object : group.Objects.GetSpan(Objects))
+            for (auto const& object : group.Objects.GetSpan({ Objects.data(), Objects.size() })) // Workaround for internal compiler error in msvc, should be GetSpan(Objects) otherwise
                 if (auto const string = G::Game.Text.Get(object.TextID).first)
                     return Utils::String::SingleLined(Utils::Encoding::ToUTF8(*string));
         }
